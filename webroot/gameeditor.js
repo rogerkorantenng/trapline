@@ -11,7 +11,9 @@ const Editor = (function() {
   let courseTitle = 'My Course';
   let forGauntlet = false;
   const T = TILE_SIZE;
-  let COLS = 60, ROWS = 20;
+  let COLS = 60, ROWS = 20;          // COLS is the *minimum* width; the world grows rightward with content
+  const MAX_COLS = 5000;             // sanity cap — effectively unlimited for a platformer course
+  const COL_HEADROOM = 30;           // columns you can scroll/build past your furthest tile
 
   function init() {
     canvas = document.getElementById('editor-canvas');
@@ -127,8 +129,20 @@ const Editor = (function() {
     canvas.addEventListener('touchend', () => { isDragging = false; lastTouches = null; });
   }
 
+  // Horizontal extent grows with the course: always at least COLS wide, and always
+  // COL_HEADROOM columns past the furthest placed tile so you can keep panning right
+  // and building forward without ever hitting a wall.
+  function _worldCols() {
+    let maxX = COLS - 1;
+    tileMap.forEach((_t, key) => {
+      const x = +key.slice(0, key.indexOf(','));
+      if (x > maxX) maxX = x;
+    });
+    return Math.min(MAX_COLS, maxX + 1 + COL_HEADROOM);
+  }
+
   function _clampScroll() {
-    scrollX = Math.max(0, Math.min(scrollX, COLS * T - canvas.width));
+    scrollX = Math.max(0, Math.min(scrollX, _worldCols() * T - canvas.width));
     scrollY = Math.max(0, Math.min(scrollY, ROWS * T - canvas.height));
   }
 
@@ -138,7 +152,7 @@ const Editor = (function() {
 
   function _applyAt(sx, sy) {
     const { x, y } = _screenToTile(sx, sy);
-    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return;
+    if (x < 0 || y < 0 || x >= MAX_COLS || y >= ROWS) return;
     const key = x+','+y;
     if (erasing) { tileMap.delete(key); }
     else { tileMap.set(key, selectedTile); }
