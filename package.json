@@ -1,6 +1,6 @@
 {
-  "name": "trapline",
-  "version": "0.0.1",
+  "name": "trapline-game",
+  "version": "0.0.0",
   "type": "module",
   "private": true,
   "license": "BSD-3-Clause",
@@ -11,10 +11,10 @@
     "playtest": "devvit playtest"
   },
   "dependencies": {
-    "@devvit/public-api": "0.12.22"
+    "@devvit/public-api": "^0.12.22"
   },
   "devDependencies": {
-    "@devvit/tsconfig": "0.12.22",
+    "@devvit/tsconfig": "^0.12.22",
     "typescript": "5.6.3"
   },
   "devvit": {

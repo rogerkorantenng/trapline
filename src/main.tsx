@@ -1,4 +1,4 @@
-import { Devvit, useState } from '@devvit/public-api';
+import { Devvit } from '@devvit/public-api';
 import type { Context } from '@devvit/public-api';
 import type { WebViewMessage } from './types/index.js';
 import { submitRun, getLeaderboard, getTopGhost, saveGhost, getPersonalBest } from './handlers/leaderboard.js';
@@ -38,23 +38,6 @@ Devvit.addCustomPostType({
   name: 'TRAPLINE',
   height: 'tall',
   render: (context) => {
-    const [webviewVisible, setWebviewVisible] = useState(false);
-
-    if (!webviewVisible) {
-      return (
-        <vstack height="100%" width="100%" alignment="center middle" backgroundColor="#0a0a0f">
-          <vstack alignment="center middle" padding="large" gap="medium">
-            <text size="xxlarge" weight="bold" color="#e8ff47">TRAPLINE</text>
-            <text size="medium" color="#aaaaaa">Build death courses. Race ghosts. Survive the Gauntlet.</text>
-            <spacer size="medium" />
-            <button appearance="primary" size="large" onPress={() => setWebviewVisible(true)}>
-              PLAY
-            </button>
-          </vstack>
-        </vstack>
-      );
-    }
-
     const handleMessage = async (rawMsg: unknown) => {
       const msg = rawMsg as WebViewMessage;
       const userId = context.userId ?? 'anon';

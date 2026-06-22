@@ -1,8 +1,8 @@
-name: trapline
+name: trapline-game
 version: 0.0.1
 api: '0.11'
 developers:
-  - rogerkorantenng
+  - Flat_Lawfulness8889
 webRoot: ./webroot
 redis:
   enabled: true
