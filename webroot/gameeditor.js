@@ -361,16 +361,54 @@ const Editor = (function() {
     App.playGame(course, { fromEditor: true });
   }
 
+  // Validate solvability heuristics + derive difficulty and calibrated medals.
+  function _analyze(tiles) {
+    const result = { ok: true, error: null, warnings: [], difficulty: 1, medals: MEDAL_EASY };
+    if (tiles.length < 5) { result.ok = false; result.error = 'Add more tiles first'; return result; }
+    const flag = tiles.find(t => t.type === 'flag');
+    if (!flag) { result.ok = false; result.error = 'Add a FINISH (🚩) tile'; return result; }
+    const ground = tiles.filter(t => t.type === 'ground' || t.type === 'platform');
+    if (!ground.length) { result.ok = false; result.error = 'Add some GROUND to stand on'; return result; }
+
+    // The finish must have at least one non-solid face so it can be touched.
+    const solid = new Set(tiles.filter(t => { const d = TILE_MAP[t.type]; return d && d.solid; }).map(t => t.x + ',' + t.y));
+    const faces = [[1,0],[-1,0],[0,1],[0,-1]];
+    const flagOpen = faces.some(([dx,dy]) => !solid.has((flag.x+dx) + ',' + (flag.y+dy)));
+    if (!flagOpen) { result.ok = false; result.error = 'FINISH is walled in — leave a way to reach it'; return result; }
+
+    // Bounds, hazards, and the widest gap in the ground line.
+    let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+    tiles.forEach(t => { minX=Math.min(minX,t.x); maxX=Math.max(maxX,t.x); minY=Math.min(minY,t.y); maxY=Math.max(maxY,t.y); });
+    const length = maxX-minX+1, vspan = maxY-minY+1;
+    const hazards = tiles.filter(t => { const d = TILE_MAP[t.type]; return d && d.hazard; }).length;
+    const cols = new Set(ground.map(t => t.x));
+    let maxGap=0, run=0;
+    for (let x=minX; x<=maxX; x++) { if (cols.has(x)) run=0; else { run++; maxGap=Math.max(maxGap,run); } }
+    if (maxGap > 5) result.warnings.push('There is a ' + maxGap + '-tile gap — make sure it is jumpable');
+
+    const score = hazards*1.2 + Math.max(0,maxGap-2)*1.5 + Math.max(0,vspan-6)*0.4 + length*0.03;
+    result.difficulty = Math.max(1, Math.min(5, Math.round(1 + score/4)));
+
+    // Calibrate medals from course length (~900ms per tile of progress).
+    const base = Math.max(8000, length*900);
+    result.medals = {
+      bronze: Math.round(base*2.2), silver: Math.round(base*1.7),
+      gold: Math.round(base*1.25), author: Math.round(base*0.9),
+    };
+    return result;
+  }
+
   async function publish() {
     const tiles = _getTiles();
-    if (tiles.length < 5) { toast('Add more tiles first!', 'warn'); return; }
-    if (!tiles.find(t => t.type === 'flag')) { toast('Add a FINISH (🚩) tile!', 'warn'); return; }
+    const analysis = _analyze(tiles);
+    if (!analysis.ok) { toast(analysis.error + '!', 'warn'); return; }
+    analysis.warnings.forEach(w => toast(w, 'warn'));
     const course = {
       id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
       authorId: window.GAME_STATE && window.GAME_STATE.userId || 'anon',
       authorName: window.GAME_STATE && window.GAME_STATE.username || 'Anonymous',
       title: courseTitle,
-      tiles, medals: MEDAL_EASY, createdAt: Date.now(),
+      tiles, medals: analysis.medals, difficulty: analysis.difficulty, createdAt: Date.now(),
     };
     try {
       await rpc('SAVE_COURSE', { course }, 'COURSE_SAVED');

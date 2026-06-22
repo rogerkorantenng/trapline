@@ -340,10 +340,23 @@ body {
   color: var(--text); letter-spacing: 2px; text-align: center; flex: 1;
   font-weight: 400;
 }
-#hud-right { flex: 1; display: flex; justify-content: flex-end; }
+#hud-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 #hud-deaths {
   font-family: 'Share Tech Mono', monospace; font-size: 13px; color: var(--red);
 }
+#hud-ghost {
+  font-family: 'Share Tech Mono', monospace; font-size: 13px; font-weight: 600;
+  letter-spacing: 1px; min-width: 56px; text-align: right;
+}
+.hud-icon-btn {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text); width: 30px; height: 30px; border-radius: 6px;
+  font-size: 15px; line-height: 1; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hud-icon-btn:hover { background: rgba(255,255,255,0.14); }
+.hud-icon-btn.muted { opacity: 0.55; }
 
 #hud-medal-bar {
   height: 4px; background: var(--bg3); position: relative; flex-shrink: 0; z-index: 20;
@@ -438,6 +451,39 @@ body {
   border-radius: 4px; padding: 8px 12px;
   font-size: 12px; color: var(--text-dim);
   font-family: 'Share Tech Mono', monospace;
+}
+
+/* ──── GAUNTLET PROPOSALS (voting) ──── */
+.gauntlet-proposals { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; width: 100%; }
+.gauntlet-sub {
+  font-size: 10px; letter-spacing: 2px; color: var(--text-faint);
+  font-family: 'Share Tech Mono', monospace; margin-bottom: 2px;
+}
+.gauntlet-empty {
+  font-size: 11px; color: var(--text-faint);
+  font-family: 'Share Tech Mono', monospace; padding: 6px 0;
+}
+.proposal-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 7px 10px;
+  font-family: 'Share Tech Mono', monospace;
+}
+.proposal-name { font-size: 12px; color: var(--text-dim); }
+.proposal-meta { font-size: 10px; color: var(--text-faint); }
+.proposal-vote {
+  margin-left: auto; background: rgba(232,255,71,0.1);
+  border: 1px solid rgba(232,255,71,0.3); color: var(--accent);
+  border-radius: 4px; padding: 4px 10px; font-family: inherit;
+  font-size: 12px; cursor: pointer;
+}
+.proposal-vote:hover:not(:disabled) { background: rgba(232,255,71,0.2); }
+.proposal-vote:disabled { opacity: 0.5; cursor: default; }
+
+/* ──── COURSE CARD THUMBNAIL ──── */
+.course-thumb {
+  width: 48px; height: 48px; display: block;
+  image-rendering: pixelated; border-radius: 4px;
 }
 
 /* ──── TOAST ──── */

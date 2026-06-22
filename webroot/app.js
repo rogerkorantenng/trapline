@@ -3,6 +3,7 @@ const App = (function() {
   let currentCourse = null;
   let currentTab = 'featured';
   let communityCoursesCache = null;
+  let lastResultMeta = null; // { courseTitle, timeMs, deathCount, medal } for sharing
 
   function _show(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -27,8 +28,20 @@ const App = (function() {
     $('btn-clear').addEventListener('click', function(){ Editor.clear(); });
     $('btn-game-exit').addEventListener('click', exitGame);
     $('btn-retry').addEventListener('click', retryGame);
+    $('btn-share').addEventListener('click', shareResult);
     $('btn-results-menu').addEventListener('click', showMenu);
     $('btn-revenge').addEventListener('click', buildRevenge);
+    // In-game HUD controls
+    var restartBtn = $('btn-game-restart');
+    if (restartBtn) restartBtn.addEventListener('click', retryGame);
+    var muteBtn = $('btn-game-mute');
+    if (muteBtn) {
+      _syncMuteIcon();
+      muteBtn.addEventListener('click', function() {
+        try { Audio.toggleMute(); } catch(e) {}
+        _syncMuteIcon();
+      });
+    }
     $('btn-gauntlet-back').addEventListener('click', showMenu);
     $('btn-gauntlet-play').addEventListener('click', playGauntlet);
     $('btn-gauntlet-propose').addEventListener('click', function(){ showEditor({gauntlet:true}); });
@@ -200,8 +213,10 @@ const App = (function() {
         }
       }
 
+      const hasTiles = course.tiles && course.tiles.length;
+      const iconInner = hasTiles ? '<canvas class="course-thumb" width="48" height="48"></canvas>' : (course.icon||'🏁');
       card.innerHTML =
-        '<div class="course-card-icon" style="background:'+diffBg[diff]+';border:1px solid '+diffColors[diff]+'22;width:52px;height:52px;font-size:26px;border-radius:8px">' + (course.icon||'🏁') + '</div>' +
+        '<div class="course-card-icon" style="background:'+diffBg[diff]+';border:1px solid '+diffColors[diff]+'22;width:52px;height:52px;font-size:26px;border-radius:8px">' + iconInner + '</div>' +
         '<div class="course-card-body">' +
           '<div class="course-card-name" style="font-size:15px;font-weight:600">' + (course.title||'Untitled') + '</div>' +
           '<div class="course-card-meta" style="margin-top:4px;display:flex;align-items:center;gap:8px">' +
@@ -222,6 +237,26 @@ const App = (function() {
       });
       card.addEventListener('click', () => playGame(course));
       container.appendChild(card);
+      if (hasTiles) _drawCourseThumb(card.querySelector('.course-thumb'), course.tiles);
+    });
+  }
+
+  // Mini top-down preview of a course's tile layout, drawn into a small canvas.
+  function _drawCourseThumb(canvas, tiles) {
+    if (!canvas || !tiles || !tiles.length) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const W = canvas.width, H = canvas.height;
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    tiles.forEach(t => { minX=Math.min(minX,t.x); minY=Math.min(minY,t.y); maxX=Math.max(maxX,t.x); maxY=Math.max(maxY,t.y); });
+    const gw = (maxX-minX+1), gh = (maxY-minY+1);
+    const scale = Math.min(W/gw, H/gh);
+    const ox = (W - gw*scale)/2, oy = (H - gh*scale)/2;
+    ctx.clearRect(0,0,W,H);
+    const s = Math.max(1, scale-0.4);
+    tiles.forEach(t => {
+      const def = (typeof TILE_MAP !== 'undefined') ? TILE_MAP[t.type] : null;
+      ctx.fillStyle = def ? '#' + (def.color>>>0).toString(16).padStart(6,'0') : '#4a4a7f';
+      ctx.fillRect(ox + (t.x-minX)*scale, oy + (t.y-minY)*scale, s, s);
     });
   }
 
@@ -278,9 +313,14 @@ const App = (function() {
     else if (data.timeMs<=medals.silver){ medalStr='SILVER'; medalClass='medal-SILVER'; medalEmoji='🥈'; }
     else if (data.timeMs<=medals.bronze){ medalStr='BRONZE'; medalClass='medal-BRONZE'; medalEmoji='🥉'; }
 
+    lastResultMeta = { courseTitle: data.course.title || 'a course', timeMs: data.timeMs, deathCount: data.deaths, medal: medalStr };
+
     const mEl = document.getElementById('results-medal');
     mEl.textContent = medalEmoji+' '+medalStr;
     mEl.className = 'results-medal ' + medalClass;
+    // Reset share button state for the new result
+    var shareBtn = document.getElementById('btn-share');
+    if (shareBtn) { shareBtn.disabled = false; shareBtn.textContent = '↗ SHARE'; }
 
     // World record banner for author medal on seeded courses
     if (medalStr==='AUTHOR') {
@@ -388,8 +428,68 @@ const App = (function() {
     overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
   }
 
+  function _syncMuteIcon() {
+    var btn = document.getElementById('btn-game-mute');
+    if (!btn) return;
+    var muted = false;
+    try { muted = Audio.isMuted(); } catch(e) {}
+    btn.textContent = muted ? '🔇' : '🔊';
+    btn.classList.toggle('muted', muted);
+  }
+
+  function shareResult() {
+    if (!lastResultMeta) return;
+    var btn = document.getElementById('btn-share');
+    if (btn) { btn.disabled = true; btn.textContent = '↗ SHARING…'; }
+    rpc('SHARE_RUN', lastResultMeta, 'SHARE_RESULT')
+      .then(function(d) {
+        if (d && d.ok) { if (btn) btn.textContent = '✓ SHARED'; toast('Shared to the comments!'); }
+        else {
+          if (btn) { btn.disabled = false; btn.textContent = '↗ SHARE'; }
+          toast(d && d.reason === 'no-post' ? 'No post to share to' : 'Could not share', 'warn');
+        }
+      })
+      .catch(function() {
+        if (btn) { btn.disabled = false; btn.textContent = '↗ SHARE'; }
+        toast('Share failed — try again', 'warn');
+      });
+  }
+
+  function _loadProposals() {
+    const wrap = document.getElementById('gauntlet-proposals');
+    if (!wrap) return;
+    rpc('GET_PROPOSALS', {}, 'PROPOSALS_LIST').then(d => _renderProposals(d.proposals || [])).catch(() => {});
+  }
+
+  function _renderProposals(proposals) {
+    const wrap = document.getElementById('gauntlet-proposals');
+    if (!wrap) return;
+    wrap.innerHTML = '<div class="gauntlet-sub">VOTE: NEXT SECTION</div>';
+    if (!proposals.length) {
+      wrap.innerHTML += '<div class="gauntlet-empty">No proposals yet — be the first to build one.</div>';
+      return;
+    }
+    proposals.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'proposal-row';
+      row.innerHTML =
+        '<span class="proposal-name">' + (p.proposerName || 'Anonymous') + '</span>' +
+        '<span class="proposal-meta">' + p.tileCount + ' tiles</span>' +
+        '<button class="proposal-vote">▲ <span>' + p.votes + '</span></button>';
+      const btn = row.querySelector('.proposal-vote');
+      btn.addEventListener('click', function() {
+        btn.disabled = true;
+        rpc('UPVOTE_PROPOSAL', { proposalId: p.id }, 'PROPOSAL_VOTED')
+          .then(d => { btn.querySelector('span').textContent = (d && d.votes) || p.votes; })
+          .catch(() => { btn.disabled = false; });
+      });
+      wrap.appendChild(row);
+    });
+  }
+
   function showGauntlet() {
     _show('screen-gauntlet');
+    _loadProposals();
     const gauntlet = window.GAME_STATE.gauntlet;
     if (gauntlet) { _renderGauntlet(gauntlet); return; }
     rpc('GET_GAUNTLET', {}, 'GAUNTLET_DATA').then(d => {

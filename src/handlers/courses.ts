@@ -46,3 +46,16 @@ export async function setDailyCourse(ctx: Context, courseId: string): Promise<vo
     expiration: new Date(Date.now() + 48 * 60 * 60 * 1000),
   });
 }
+
+/**
+ * Deterministically rotate the Daily course through the community index.
+ * Returns the chosen course id, or null if there are no community courses yet.
+ */
+export async function pickAndSetDaily(ctx: Context): Promise<string | null> {
+  const ids = await ctx.redis.zRange(COURSE_LIST_KEY, 0, -1, { by: 'rank' });
+  if (!ids.length) return null;
+  const dayIndex = Math.floor(Date.now() / 86_400_000);
+  const pick = ids[dayIndex % ids.length].member;
+  await setDailyCourse(ctx, pick);
+  return pick;
+}

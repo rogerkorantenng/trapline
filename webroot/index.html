@@ -98,7 +98,10 @@
       </div>
       <div id="hud-timer" title="Tap to pause">0.000</div>
       <div id="hud-right">
+        <span id="hud-ghost" style="display:none"></span>
         <span id="hud-deaths">💀 0</span>
+        <button class="hud-icon-btn" id="btn-game-restart" title="Restart (R)">↺</button>
+        <button class="hud-icon-btn" id="btn-game-mute" title="Mute / unmute">🔊</button>
       </div>
     </div>
     <div id="hud-medal-bar">
@@ -132,6 +135,7 @@
       <div id="results-board" class="results-board"></div>
       <div class="results-buttons">
         <button class="btn btn-primary" id="btn-retry">↺ RETRY</button>
+        <button class="btn btn-secondary" id="btn-share">↗ SHARE</button>
         <button class="btn btn-secondary" id="btn-results-menu">⌂ MENU</button>
         <button class="btn btn-secondary" id="btn-revenge" style="display:none">⚔ BUILD REVENGE</button>
       </div>
@@ -153,6 +157,7 @@
       </div>
       <button class="btn btn-primary" style="width:260px" id="btn-gauntlet-play">▶ RACE THE GAUNTLET</button>
       <button class="btn btn-secondary" style="width:260px;margin-top:12px" id="btn-gauntlet-propose">+ PROPOSE A SECTION</button>
+      <div class="gauntlet-proposals" id="gauntlet-proposals"></div>
       <div class="gauntlet-recent" id="gauntlet-recent"></div>
     </div>
   </div>

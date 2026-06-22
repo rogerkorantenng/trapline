@@ -4,8 +4,12 @@
 const Audio = (function() {
   let ctx = null;
   let enabled = true;
+  let muted = false;
+  const MUTE_KEY = 'trapline_muted';
+  try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch(e) {}
 
   function _ctx() {
+    if (muted) return null;
     if (!ctx) {
       try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { enabled=false; }
     }
@@ -105,5 +109,15 @@ const Audio = (function() {
   document.addEventListener('click', ()=>{ try{_ctx()&&ctx.state==='suspended'&&ctx.resume();}catch(e){} }, {once:false});
   document.addEventListener('touchstart', ()=>{ try{_ctx()&&ctx.state==='suspended'&&ctx.resume();}catch(e){} }, {once:false});
 
-  return { jump, land, dash, death, stomp, spring, finish, click, nearMiss, countdown, go };
+  function setMuted(v) {
+    muted = !!v;
+    try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch(e) {}
+    if (muted && ctx) { try { ctx.suspend(); } catch(e) {} }
+    else if (!muted && ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch(e) {} }
+  }
+  function isMuted() { return muted; }
+  function toggleMute() { setMuted(!muted); return muted; }
+
+  return { jump, land, dash, death, stomp, spring, finish, click, nearMiss, countdown, go,
+           setMuted, isMuted, toggleMute };
 })();
