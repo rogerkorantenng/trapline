@@ -354,6 +354,10 @@ const GameRunner = (function() {
       // ── Graveyard ──
       this.graveyardGfx = this.add.graphics().setDepth(3);
 
+      // ── Near-miss vignette (screen-space red flash; cameras have no tint API) ──
+      this.vignette = this.add.rectangle(_W/2, _H/2, _W, _H, 0xff3355)
+        .setAlpha(0).setScrollFactor(0).setDepth(40);
+
       // ── Input — use WINDOW-level key listeners (bypasses iframe focus issues) ──
       this.paused = false;
       this.keys = {left:false,right:false,up:false,down:false,shift:false,space:false,esc:false};
@@ -948,10 +952,10 @@ const GameRunner = (function() {
       }
       if (this.nearMissTimer > 0) {
         this.nearMissTimer -= dt;
-        // Red vignette flash handled via camera tint
-        this.cameras.main.setTint(this.nearMissTimer > 0 ? 0xff6666 : 0xffffff);
+        // Red vignette flash via screen-space overlay (cameras have no tint API)
+        this.vignette.setAlpha(this.nearMissTimer > 0 ? 0.18 : 0);
       } else {
-        this.cameras.main.clearTint();
+        this.vignette.setAlpha(0);
       }
 
       // ── Run dust ──
@@ -1155,7 +1159,7 @@ const GameRunner = (function() {
           if(wasted.scene) wasted.destroy();
           if(tauntTxt.scene) tauntTxt.destroy();
           if(deathNum.scene) deathNum.destroy();
-          this.cameras.main.clearTint();
+          if(this.vignette) this.vignette.setAlpha(0);
         }});
       });
     }
