@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>TRAPLINE</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0f; overflow: hidden; width: 100vw; height: 100vh; font-family: 'Courier New', monospace; }
+    #game-container { width: 100vw; height: 100vh; position: relative; }
+    canvas { display: block; }
+    #ui-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    #ui-overlay .interactive { pointer-events: all; }
+    #loading {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #e8ff47; font-size: 24px; letter-spacing: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <div id="loading">LOADING...</div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.87.0/dist/phaser.min.js"></script>
+  <script src="constants.js"></script>
+  <script src="rpc.js"></script>
+  <script src="physics.js"></script>
+  <script src="juice.js"></script>
+  <script src="tilemap.js"></script>
+  <script src="player.js"></script>
+  <script src="camera.js"></script>
+  <script src="hud.js"></script>
+  <script src="scenes/Boot.js"></script>
+  <script src="scenes/Menu.js"></script>
+  <script src="scenes/Game.js"></script>
+  <script src="scenes/Editor.js"></script>
+  <script src="scenes/Results.js"></script>
+  <script src="scenes/Gauntlet.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+name: trapline
+version: 0.0.1
+api: '0.11'
+developers:
+  - rogerkorantenng
+webRoot: ./webroot
+redis:
+  enabled: true
