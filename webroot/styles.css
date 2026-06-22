@@ -321,6 +321,7 @@ body {
 /* ──── GAME HUD ──── */
 #screen-game {
   flex-direction: column; background: var(--bg); align-items: stretch;
+  height: 100vh; /* ensure full height for Phaser to measure */
 }
 #game-hud {
   height: 44px; background: rgba(7,7,15,0.9);
@@ -356,8 +357,11 @@ body {
   background: rgba(255,255,255,0.3); border-radius: 1px;
 }
 
-#game-container { flex: 1; position: relative; overflow: hidden; }
-#game-container canvas { display: block; width: 100% !important; height: 100% !important; }
+#game-container {
+  flex: 1; position: relative; overflow: hidden;
+  min-height: 0; /* required for flex child to shrink */
+}
+#game-container canvas { display: block; }
 
 /* ──── RESULTS ──── */
 .results-content {

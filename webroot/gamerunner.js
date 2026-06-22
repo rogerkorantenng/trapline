@@ -18,6 +18,8 @@ const GameRunner = (function() {
   let game = null;
   let _course = null;
   let _opts = {};
+  let _W = 480;
+  let _H = 584;
 
   const P = PHYSICS;
   const T = TILE_SIZE;
@@ -243,10 +245,18 @@ const GameRunner = (function() {
   // ─────────────────────────────────────────────────────────────
   class RunScene extends Phaser.Scene {
     constructor() { super('Run'); }
-    init(data) { _course=data.course; _opts=data.opts||{}; }
+    init() {
+      // _course and _opts are set at module scope by launch() before Phaser boots
+    }
 
     create() {
-      const W = this.scale.width, H = this.scale.height;
+      const W = _W, H = _H;
+
+      // Safety: if _course is missing, show error and bail
+      if (!_course || !_course.tiles) {
+        this.add.text(W/2, H/2, 'ERROR: No course data\n_course='+String(_course), {fontSize:'14px',color:'#ff3355',wordWrap:{width:W-20}}).setOrigin(0.5);
+        return;
+      }
 
       // ── Parallax background ──
       this._buildBackground(W, H);
@@ -344,13 +354,35 @@ const GameRunner = (function() {
       // ── Graveyard ──
       this.graveyardGfx = this.add.graphics().setDepth(3);
 
-      // ── Input ──
-      this.cursors = this.input.keyboard.createCursorKeys();
-      this.wasd    = this.input.keyboard.addKeys({A:'A',D:'D',W:'W',S:'S'});
-      this.dashKey = this.input.keyboard.addKey('SHIFT');
-      this.spaceKey= this.input.keyboard.addKey('SPACE');
-      this.escKey  = this.input.keyboard.addKey('ESC');
-      this.paused  = false;
+      // ── Input — use WINDOW-level key listeners (bypasses iframe focus issues) ──
+      this.paused = false;
+      this.keys = {left:false,right:false,up:false,down:false,shift:false,space:false,esc:false};
+      this.keysJust = {up:false,space:false,shift:false};
+
+      var self = this;
+      this._onKeyDown = function(e) {
+        if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') self.keys.left=true;
+        if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') self.keys.right=true;
+        if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key===' ') { self.keys.up=true; self.keysJust.up=true; self.keysJust.space=true; }
+        if(e.key==='Shift') { self.keys.shift=true; self.keysJust.shift=true; }
+        if(e.key==='Escape') self.keys.esc=true;
+        if(e.key==='ArrowDown'||e.key==='s'||e.key==='S') self.keys.down=true;
+        e.preventDefault();
+      };
+      this._onKeyUp = function(e) {
+        if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') self.keys.left=false;
+        if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') self.keys.right=false;
+        if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key===' ') self.keys.up=false;
+        if(e.key==='Shift') self.keys.shift=false;
+        if(e.key==='Escape') self.keys.esc=false;
+        if(e.key==='ArrowDown'||e.key==='s'||e.key==='S') self.keys.down=false;
+      };
+      window.addEventListener('keydown', this._onKeyDown);
+      window.addEventListener('keyup', this._onKeyUp);
+
+      // Tap/click anywhere on canvas = jump
+      this.input.on('pointerdown', function(){ self.keysJust.up=true; self.keys.up=true; });
+      this.input.on('pointerup', function(){ self.keys.up=false; });
 
       // Tap timer to pause (HUD element)
       const timerEl = document.getElementById('hud-timer');
@@ -363,10 +395,9 @@ const GameRunner = (function() {
       this._setupMobileControls();
 
       // ── State machine ──
-      // 'countdown' → 'running' → 'dead_anim' → 'running' (loop)
       this.phase = 'countdown';
       this.countdownVal = 3;
-      this.countdownTimer = 1.0;
+      this.countdownTimer = Date.now() + 700; // wall-clock ms
       this.started = false;
       this.startMs = 0;
       this.elapsed = 0;
@@ -387,6 +418,16 @@ const GameRunner = (function() {
       this._updateHud();
       this._setMedalTicks();
 
+      // ── Countdown text ──
+      this.cdText = this.add.text(_W/2, _H*0.38, '3', {
+        fontSize:'96px', fontFamily:'Share Tech Mono,Courier New',
+        color:'#e8ff47', stroke:'#000', strokeThickness:8,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(50);
+      this.cdSub = this.add.text(_W/2, _H*0.52, 'PRESS ANY KEY TO START', {
+        fontSize:'14px', fontFamily:'Share Tech Mono,Courier New',
+        color:'#888899', letterSpacing:4,
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(50);
+
       // ── Async data ──
       rpc('GET_GHOST',{courseId:_course.id},'GHOST_DATA')
         .then(d=>{ if(d.ghost&&d.ghost.length) this.ghostFrames=d.ghost; })
@@ -399,8 +440,9 @@ const GameRunner = (function() {
       this.flagWave = 0;
       this._setupFlagAnimation();
 
-      // ── Countdown overlay ──
-      this._showCountdown();
+      // Player spawns on the ground immediately — no countdown
+      this.body.y = this.spawnY - 20;
+      this.body.vy = 0;
     }
 
     // ─── World decorations ───
@@ -419,7 +461,7 @@ const GameRunner = (function() {
         g.fillRect(px+T-2, py, 2, T);
       });
       // Random stars/lights in background
-      const seed = _course.id.charCodeAt(0)||42;
+      const seed = (_course && _course.id) ? _course.id.charCodeAt(0) : 42;
       for(let i=0;i<40;i++){
         const sx = ((seed*i*317)%2000);
         const sy = ((seed*i*197)%800) - 200;
@@ -464,7 +506,7 @@ const GameRunner = (function() {
     _buildBackground(W, H) {
       // Layer 0: deep space gradient (fixed)
       const bg = this.add.graphics().setScrollFactor(0).setDepth(0);
-      bg.fillGradientStyle(0x07070f,0x07070f,0x0d0520,0x0d0520,1);
+      bg.fillStyle(0x07070f,1);
       bg.fillRect(0,0,W,H);
 
       // Layer 1: distant pillars (slow parallax)
@@ -493,12 +535,6 @@ const GameRunner = (function() {
         }
       }
 
-      // Scanline overlay
-      const scan = this.add.graphics().setScrollFactor(0).setDepth(0);
-      for(let y=0;y<H;y+=4){
-        scan.fillStyle(0x000000,0.04);
-        scan.fillRect(0,y,W,1);
-      }
     }
 
     // ─── Tile drawing ───
@@ -698,54 +734,18 @@ const GameRunner = (function() {
 
     // ─── Spawn ───
     _findSpawn() {
-      // Priority: ground > platform > wall — find leftmost passable ground
-      let bestX=9999, bestTX=1, bestTY=10;
-      // Pass 1: ground tiles only
+      let bestTX=1, bestTY=10, bestX=9999;
       this.tileMap.forEach((type,key) => {
-        if (type==='ground') {
+        if (type==='ground'||type==='platform') {
           const [tx,ty]=key.split(',').map(Number);
           if (tx < bestX) { bestX=tx; bestTX=tx; bestTY=ty; }
         }
       });
-      // Pass 2: platform if no ground found
-      if (bestX===9999) {
-        this.tileMap.forEach((type,key) => {
-          if (type==='platform') {
-            const [tx,ty]=key.split(',').map(Number);
-            if (tx < bestX) { bestX=tx; bestTX=tx; bestTY=ty; }
-          }
-        });
-      }
-      // Ensure spawn is above the tile, with some clearance
-      // Also check spawn isn't blocked by another tile above
-      let spawnTY = bestTY;
-      while (this.tileMap.has(bestTX+','+(spawnTY-1)) || this.tileMap.has((bestTX)+','+(spawnTY-2))) {
-        spawnTY--;
-        if (spawnTY < 0) break;
-      }
+      // Spawn 2 tiles above the ground tile — simple and safe
       this.spawnX = bestTX*T + T/2;
-      this.spawnY = bestTY*T - 4; // spawn just above the ground tile
+      this.spawnY = (bestTY-2)*T;
     }
 
-    // ─── Countdown ───
-    _showCountdown() {
-      const W=this.scale.width, H=this.scale.height;
-      this.cdText = this.add.text(W/2, H*0.38, '3', {
-        fontSize:'96px', fontFamily:'Share Tech Mono, Courier New',
-        color:'#e8ff47', stroke:'#000',strokeThickness:8,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(50).setAlpha(0);
-
-      this.cdSubText = this.add.text(W/2, H*0.52, 'GET READY', {
-        fontSize:'18px', fontFamily:'Share Tech Mono, Courier New',
-        color:'#888899', letterSpacing:6,
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(50);
-
-      // Player appears falling in from above
-      this.body.y = this.spawnY - 200;
-      this.body.vy = 400;
-
-      this.tweens.add({ targets:this.cdText, alpha:1, duration:200 });
-    }
 
     // ─── Mobile controls ───
     _setupMobileControls() {
@@ -777,6 +777,7 @@ const GameRunner = (function() {
 
     // ─── Main update loop ───
     update(time, delta) {
+      if (!this.body || !this.phase) return; // create() didn't finish
       const dt = Math.min(delta/1000, 0.05);
       this.sawAngle = (this.sawAngle||0) + dt*4;
 
@@ -790,6 +791,14 @@ const GameRunner = (function() {
 
       // ── Flag animation ──
       if (this.flagGfxMap) this._updateFlags(time/1000);
+
+      // ── Countdown phase ──
+      if (this.phase === 'countdown') {
+        this._updateCountdown(dt);
+        this._drawPlayerCharacter();
+        this._moveCamera(dt);
+        return;
+      }
 
       // ── Saw visuals ──
       this.sawGfx.forEach(({g,tx,ty}) => {
@@ -836,41 +845,30 @@ const GameRunner = (function() {
       });
 
       // ─── Pause check ───
-      if (Phaser.Input.Keyboard.JustDown(this.escKey)) this._togglePause();
+      if (this.keys.esc) { this.keys.esc=false; this._togglePause(); }
       if (this.paused) return;
-
-      // ─── Phase: countdown ───
-      if (this.phase === 'countdown') {
-        this._updateCountdown(dt);
-        // Still simulate physics so player falls to ground
-        const fakeInput = {left:false,right:false,jumpPressed:false,jumpHeld:false,dashPressed:false};
-        physStep(this.body, fakeInput, this.tileMap, this.crushers, this.disappearing, dt);
-        this._drawPlayerCharacter();
-        this._moveCamera(dt);
-        return;
-      }
 
       // ─── Phase: dead_anim ───
       if (this.phase === 'dead_anim') {
-        this.deathAnimTimer -= dt;
-        // Animate death particles (already spawned, tweens handle it)
-        if (this.deathAnimTimer <= 0) this._doRespawn();
+        if (Date.now() >= this.deathAnimTimer) this._doRespawn();
         return;
       }
 
       // ─── Phase: running ───
 
-      // ── Input ──
-      const k=this.cursors, w=this.wasd;
-      const touch=this.touch;
+      // ── Input (window-level keys + touch) ──
+      const K = this.keys;
+      const KJ = this.keysJust;
+      const touch = this.touch;
       const input = {
-        left:  k.left.isDown||w.A.isDown||touch.left,
-        right: k.right.isDown||w.D.isDown||touch.right,
-        jumpPressed: Phaser.Input.Keyboard.JustDown(k.up)||Phaser.Input.Keyboard.JustDown(w.W)||
-                     Phaser.Input.Keyboard.JustDown(this.spaceKey)||touch.jumpJustPressed,
-        jumpHeld: k.up.isDown||w.W.isDown||this.spaceKey.isDown||touch.jump,
-        dashPressed: Phaser.Input.Keyboard.JustDown(this.dashKey)||touch.dashJustPressed,
+        left:  K.left || touch.left,
+        right: K.right || touch.right,
+        jumpPressed: KJ.up || KJ.space || touch.jumpJustPressed,
+        jumpHeld: K.up || touch.jump,
+        dashPressed: KJ.shift || touch.dashJustPressed,
       };
+      // Clear "just pressed" flags after reading
+      KJ.up = false; KJ.space = false; KJ.shift = false;
       touch.jumpJustPressed = false;
       touch.dashJustPressed = false;
 
@@ -884,7 +882,8 @@ const GameRunner = (function() {
       if (input.right) this.body.facing=1;
       if (input.left)  this.body.facing=-1;
 
-      // ── Physics ──
+      // ── Physics (skip during hitstop frames) ──
+      if (this.hitstopActive) return;
       const events = physStep(this.body, input, this.tileMap, this.crushers, this.disappearing, dt);
 
       // ── Enemies ──
@@ -988,7 +987,7 @@ const GameRunner = (function() {
 
     // ─── Taunt picker (shown on death, auto-dismiss after 1s) ───
     _showTauntPicker(deathX, deathY, onDone) {
-      const W=this.scale.width,H=this.scale.height;
+      const W=_W,H=_H;
       const taunts = TAUNTS.slice(0,6);
       const container = document.createElement('div');
       container.style.cssText = [
@@ -1026,7 +1025,7 @@ const GameRunner = (function() {
     _togglePause() {
       this.paused = !this.paused;
       if (this.paused) {
-        const W=this.scale.width,H=this.scale.height;
+        const W=_W,H=_H;
         this.pauseOverlay = this.add.rectangle(W/2,H/2,W,H,0x000000,0.7).setScrollFactor(0).setDepth(60);
         this.pauseText = this.add.text(W/2,H/2,'PAUSED\n\nTap timer to resume\nESC to resume\n[X] to quit',{
           fontSize:'22px',fontFamily:'Share Tech Mono,Courier New',
@@ -1043,36 +1042,27 @@ const GameRunner = (function() {
       }
     }
 
-    // ─── Countdown logic ───
+
+    // ─── Countdown ───
     _updateCountdown(dt) {
-      this.countdownTimer -= dt;
-      if (this.countdownTimer <= 0) {
-        this.countdownVal--;
-        this.countdownTimer = 1.0;
-        if (this.countdownVal < 0) {
-          // GO!
-          try { Audio.go(); } catch(e) {}
-        if (this.cdText) {
-            this.cdText.setText('GO!');
-            this.cdText.setStyle({color:'#44ff88'});
-            this.cdText.setAlpha(1);
-            this.tweens.add({targets:this.cdText, alpha:0, scaleX:2, scaleY:2, duration:500, onComplete:()=>{
-              if(this.cdText) { this.cdText.destroy(); this.cdText=null; }
-              if(this.cdSubText) { this.cdSubText.destroy(); this.cdSubText=null; }
-            }});
-          }
-          this.phase = 'running';
-          return;
-        }
-        try { Audio.countdown(); } catch(e) {}
-        if (this.cdText) {
-          const labels = ['3','2','1'];
-          this.cdText.setText(labels[this.countdownVal] || '');
-          this.cdText.setAlpha(1);
-          this.tweens.add({targets:this.cdText, alpha:0.2, duration:800});
-        }
-        this.cameras.main.shake(80, 0.003);
+      if (Date.now() < this.countdownTimer) return;
+      this.countdownTimer = Date.now() + 700; // next tick in 700ms wall-clock
+      this.countdownVal--;
+
+      if (this.countdownVal <= 0) {
+        // GO — transition to running
+        if (this.cdText) { this.cdText.setText('GO!'); this.cdText.setStyle({color:'#44ff88'}); }
+        if (this.cdSub)  { this.cdSub.destroy(); this.cdSub=null; }
+        this.phase = 'running';
+        try { this.game.canvas.focus(); } catch(e){}
+        // Use real setTimeout — Phaser's delayedCall doesn't work reliably in iframes
+        var self = this;
+        setTimeout(function(){ if(self.cdText){self.cdText.destroy();self.cdText=null;} }, 400);
+        return;
       }
+
+      if (this.cdText) { this.cdText.setText(String(this.countdownVal)); }
+      this.cameras.main.shake(50, 0.002);
     }
 
     // ─── Death ───
@@ -1085,9 +1075,9 @@ const GameRunner = (function() {
       const b=this.body;
       const cx=b.x+b.w/2, cy=b.y+b.h/2;
 
-      // HITSTOP
-      this.time.timeScale = 0.05;
-      this.time.delayedCall(80, () => { this.time.timeScale = 1; });
+      // HITSTOP — use a real-time setTimeout, NOT Phaser time (which is scaled)
+      this.hitstopActive = true;
+      setTimeout(() => { this.hitstopActive = false; }, 80);
 
       // Screen shake
       this.cameras.main.shake(300, 0.015);
@@ -1117,7 +1107,7 @@ const GameRunner = (function() {
       }
 
       // WASTED text
-      const W=this.scale.width, H=this.scale.height;
+      const W=_W, H=_H;
       const wasted=this.add.text(W/2, H*0.38, 'WASTED', {
         fontSize:'64px', fontFamily:'Share Tech Mono, Courier New',
         color:'#ff3355', stroke:'#000',strokeThickness:6,
@@ -1155,19 +1145,19 @@ const GameRunner = (function() {
         this.dangerTexts.push(dt2);
       }
 
-      // Fade out overlay + respawn
-      // Show taunt picker briefly, then auto-dismiss
+      // Auto-respawn after 1.2s
+      this.phase = 'dead_anim';
+      this.deathAnimTimer = Date.now() + 1200; // wall-clock ms, not Phaser dt
+
+      // Show taunt picker (fire and forget — doesn't control respawn)
       this._showTauntPicker(cx, cy, () => {
         this.tweens.add({targets:[wasted,tauntTxt,deathNum], alpha:0, duration:300, onComplete:()=>{
-          wasted.destroy(); tauntTxt.destroy(); deathNum.destroy();
+          if(wasted.scene) wasted.destroy();
+          if(tauntTxt.scene) tauntTxt.destroy();
+          if(deathNum.scene) deathNum.destroy();
           this.cameras.main.clearTint();
         }});
-        this.phase = 'running';
-        this._doRespawn();
       });
-
-      this.phase = 'dead_anim';
-      this.deathAnimTimer = 1.0;
     }
 
     _doRespawn() {
@@ -1224,7 +1214,7 @@ const GameRunner = (function() {
       try { Audio.finish(); } catch(e) {}
 
       if(_opts.fromEditor) {
-        const W=this.scale.width, H=this.scale.height;
+        const W=_W, H=_H;
         const clearTxt=this.add.text(W/2,H/2,'COURSE CLEARED!\n'+(timeMs/1000).toFixed(3)+'s',{
           fontSize:'32px',fontFamily:'Share Tech Mono,Courier New',
           color:'#44ff88',stroke:'#000',strokeThickness:5,align:'center',
@@ -1241,7 +1231,7 @@ const GameRunner = (function() {
       if(hide) hide.style.display='none';
 
       // Brief celebration overlay before results
-      const W=this.scale.width, H=this.scale.height;
+      const W=_W, H=_H;
       const medals=_course.medals||MEDAL_EASY;
       let mStr='CLEAR', mCol='#aaaacc';
       if(timeMs<=medals.author){mStr='👑 AUTHOR';mCol='#e8ff47';}
@@ -1285,7 +1275,7 @@ const GameRunner = (function() {
     // ─── Camera ───
     _moveCamera(dt) {
       const b=this.body;
-      const W=this.scale.width, H=this.scale.height;
+      const W=_W, H=_H;
       const lookAheadX=b.facing*100, lookAheadY=b.vy>0?40:b.vy<-100?-30:0;
       const targetX=b.x+b.w/2+lookAheadX - W/2;
       const targetY=b.y+b.h/2+lookAheadY - H/2;
@@ -1431,20 +1421,33 @@ const GameRunner = (function() {
   function launch(course, opts) {
     _course=course; _opts=opts||{};
     if(game){game.destroy(true);game=null;}
-    const container=document.getElementById('game-container');
-    const W=container.clientWidth||window.innerWidth;
-    const H=container.clientHeight||(window.innerHeight-52);
+    var container=document.getElementById('game-container');
+    container.innerHTML='';
+
+    // Hard-code safe dimensions — Devvit webview is always full viewport
+    _W = window.innerWidth || 480;
+    _H = Math.max(300, window.innerHeight - 56);
+
     game=new Phaser.Game({
-      type:Phaser.AUTO, parent:'game-container',
-      backgroundColor:0x07070f, width:W, height:H,
-      scene:[RunScene], audio:{noAudio:true},
-      scale:{mode:Phaser.Scale.RESIZE},
+      type:Phaser.AUTO,
+      parent:'game-container',
+      width:_W,
+      height:_H,
+      backgroundColor:0x07070f,
+      scene:[RunScene],
+      audio:{noAudio:true},
     });
   }
 
   function destroy() {
     const mc=document.getElementById('mobile-controls');
     if(mc) mc.style.display='none';
+    // Remove window key listeners
+    if(game && game.scene && game.scene.scenes && game.scene.scenes[0]) {
+      var s = game.scene.scenes[0];
+      if(s._onKeyDown) window.removeEventListener('keydown', s._onKeyDown);
+      if(s._onKeyUp) window.removeEventListener('keyup', s._onKeyUp);
+    }
     if(game){game.destroy(true);game=null;}
   }
 

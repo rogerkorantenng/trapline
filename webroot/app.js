@@ -240,7 +240,12 @@ const App = (function() {
       const mc = document.getElementById('mobile-controls');
       if (mc) mc.style.display = 'flex';
     }
-    GameRunner.launch(course, opts || {});
+    // Wait two frames so browser lays out #screen-game before Phaser measures dimensions
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        GameRunner.launch(course, opts || {});
+      });
+    });
   }
 
   function exitGame() {
