@@ -424,13 +424,15 @@ const Editor = (function() {
       title: courseTitle,
       tiles, medals: analysis.medals, difficulty: analysis.difficulty, createdAt: Date.now(),
     };
+    // Play the published course as a real run (no fromEditor): finishing routes
+    // to the results screen, which is where SHARE (post a run comment) lives.
     try {
       await rpc('SAVE_COURSE', { course }, 'COURSE_SAVED');
       toast('Course published!');
-      App.playGame(course, { fromEditor: true });
+      App.playGame(course);
     } catch(e) {
       toast('Saved locally, play now?');
-      App.playGame(course, { fromEditor: true });
+      App.playGame(course);
     }
   }
 
