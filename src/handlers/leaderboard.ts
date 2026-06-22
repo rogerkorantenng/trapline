@@ -11,12 +11,9 @@ export async function submitRun(
   timeMs: number,
   deathCount: number
 ): Promise<void> {
-  // Score encodes: lower time = better. Pack as (deathCount * 1e9 + timeMs) so fewer deaths always wins.
   const score = deathCount * 1_000_000_000 + timeMs;
   const key = `lb:${courseId}`;
   await ctx.redis.zAdd(key, { score, member: userId });
-
-  // Store human-readable data alongside
   await ctx.redis.hSet(`lb_meta:${courseId}`, {
     [userId]: JSON.stringify({ username, timeMs, deathCount }),
   });
@@ -33,21 +30,21 @@ export async function getLeaderboard(
 
   const metaRaw = await ctx.redis.hGetAll(`lb_meta:${courseId}`);
 
-  return members.map((member, i) => {
-    const meta = metaRaw[member] ? JSON.parse(metaRaw[member]) : { username: member, timeMs: 0, deathCount: 0 };
+  return members.map((entry, i) => {
+    const meta = metaRaw[entry.member] ? JSON.parse(metaRaw[entry.member]) : { username: entry.member, timeMs: 0, deathCount: 0 };
     const timeMs: number = meta.timeMs;
     let medal: LeaderboardEntry['medal'] = null;
     if (timeMs <= medals.author) medal = 'author';
     else if (timeMs <= medals.gold) medal = 'gold';
     else if (timeMs <= medals.silver) medal = 'silver';
     else if (timeMs <= medals.bronze) medal = 'bronze';
-    return { userId: member, username: meta.username, timeMs, deathCount: meta.deathCount, rank: i + 1, medal };
+    return { userId: entry.member, username: meta.username as string, timeMs, deathCount: meta.deathCount as number, rank: i + 1, medal };
   });
 }
 
 export async function getTopGhost(ctx: Context, courseId: string): Promise<string | null> {
-  const key = `ghost:${courseId}`;
-  return ctx.redis.get(key);
+  const val = await ctx.redis.get(`ghost:${courseId}`);
+  return val ?? null;
 }
 
 export async function saveGhost(ctx: Context, courseId: string, replayJson: string): Promise<void> {

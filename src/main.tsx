@@ -1,4 +1,5 @@
 import { Devvit, useState } from '@devvit/public-api';
+import type { Context } from '@devvit/public-api';
 import type { WebViewMessage } from './types/index.js';
 import { submitRun, getLeaderboard, getTopGhost, saveGhost, getPersonalBest } from './handlers/leaderboard.js';
 import { saveCourse, getCourse, listCourses, getDailyCourse } from './handlers/courses.js';
@@ -9,6 +10,10 @@ Devvit.configure({
   redditAPI: true,
   redis: true,
 });
+
+function postMsg(ctx: Context, payload: unknown): void {
+  ctx.ui.webView.postMessage('trapline-webview', JSON.parse(JSON.stringify(payload)));
+}
 
 Devvit.addMenuItem({
   label: 'Create TRAPLINE Game',
@@ -60,10 +65,7 @@ Devvit.addCustomPostType({
           const username = user?.username ?? 'Anonymous';
           const gauntlet = await getGauntlet(context);
           const daily = await getDailyCourse(context);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'INIT_RESPONSE',
-            data: { username, userId, gauntlet, daily },
-          });
+          postMsg(context, { type: 'INIT_RESPONSE', data: { username, userId, gauntlet, daily } });
           break;
         }
 
@@ -77,16 +79,15 @@ Devvit.addCustomPostType({
           const prevBest = await getPersonalBest(context, courseId, userId);
           await submitRun(context, courseId, userId, username, timeMs, deathCount);
 
-          // Save ghost only if this is a new personal best
           if (prevBest === null || timeMs < prevBest) {
             await saveGhost(context, courseId, JSON.stringify(replayData));
           }
 
           const board = await getLeaderboard(context, courseId, course.medals);
-          const ghost = await getTopGhost(context, courseId);
-          context.ui.webView.postMessage('trapline-webview', {
+          const ghostRaw = await getTopGhost(context, courseId);
+          postMsg(context, {
             type: 'RUN_SUBMITTED',
-            data: { board, ghost: ghost ? JSON.parse(ghost) : null },
+            data: { board, ghost: ghostRaw ? JSON.parse(ghostRaw) : null },
           });
           break;
         }
@@ -96,19 +97,16 @@ Devvit.addCustomPostType({
           const course = await getCourse(context, courseId);
           if (!course) break;
           const board = await getLeaderboard(context, courseId, course.medals);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'LEADERBOARD_DATA',
-            data: { board },
-          });
+          postMsg(context, { type: 'LEADERBOARD_DATA', data: { board } });
           break;
         }
 
         case 'GET_GHOST': {
           const { courseId } = msg.data;
-          const ghost = await getTopGhost(context, courseId);
-          context.ui.webView.postMessage('trapline-webview', {
+          const ghostRaw = await getTopGhost(context, courseId);
+          postMsg(context, {
             type: 'GHOST_DATA',
-            data: { ghost: ghost ? JSON.parse(ghost) : null },
+            data: { ghost: ghostRaw ? JSON.parse(ghostRaw) : null },
           });
           break;
         }
@@ -120,48 +118,33 @@ Devvit.addCustomPostType({
           course.authorName = user?.username ?? 'Anonymous';
           course.createdAt = Date.now();
           await saveCourse(context, course);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'COURSE_SAVED',
-            data: { courseId: course.id },
-          });
+          postMsg(context, { type: 'COURSE_SAVED', data: { courseId: course.id } });
           break;
         }
 
         case 'GET_COURSE': {
           const { courseId } = msg.data;
           const course = await getCourse(context, courseId);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'COURSE_DATA',
-            data: { course },
-          });
+          postMsg(context, { type: 'COURSE_DATA', data: { course } });
           break;
         }
 
         case 'LIST_COURSES': {
           const courses = await listCourses(context, 20);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'COURSES_LIST',
-            data: { courses },
-          });
+          postMsg(context, { type: 'COURSES_LIST', data: { courses } });
           break;
         }
 
         case 'GET_GAUNTLET': {
           const gauntlet = await getGauntlet(context);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'GAUNTLET_DATA',
-            data: { gauntlet },
-          });
+          postMsg(context, { type: 'GAUNTLET_DATA', data: { gauntlet } });
           break;
         }
 
         case 'PROPOSE_GAUNTLET': {
           const { segment, proposerName } = msg.data;
           await submitGauntletProposal(context, userId, proposerName, segment);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'PROPOSAL_SAVED',
-            data: {},
-          });
+          postMsg(context, { type: 'PROPOSAL_SAVED', data: {} });
           break;
         }
 
@@ -174,19 +157,13 @@ Devvit.addCustomPostType({
         case 'GET_DEATH_GRAVEYARD': {
           const { courseId } = msg.data;
           const markers = await getGraveyard(context, courseId);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'GRAVEYARD_DATA',
-            data: { markers },
-          });
+          postMsg(context, { type: 'GRAVEYARD_DATA', data: { markers } });
           break;
         }
 
         case 'GET_DAILY_COURSE': {
           const daily = await getDailyCourse(context);
-          context.ui.webView.postMessage('trapline-webview', {
-            type: 'DAILY_COURSE_DATA',
-            data: { course: daily },
-          });
+          postMsg(context, { type: 'DAILY_COURSE_DATA', data: { course: daily } });
           break;
         }
       }
