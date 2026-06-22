@@ -361,7 +361,7 @@ const GameRunner = (function() {
       // ── Input — use WINDOW-level key listeners (bypasses iframe focus issues) ──
       this.paused = false;
       this.keys = {left:false,right:false,up:false,down:false,shift:false,space:false,esc:false};
-      this.keysJust = {up:false,space:false,shift:false};
+      this.keysJust = {up:false,space:false,shift:false,restart:false};
 
       var self = this;
       this._onKeyDown = function(e) {
@@ -370,6 +370,7 @@ const GameRunner = (function() {
         if(e.key==='ArrowUp'||e.key==='w'||e.key==='W'||e.key===' ') { self.keys.up=true; self.keysJust.up=true; self.keysJust.space=true; }
         if(e.key==='Shift') { self.keys.shift=true; self.keysJust.shift=true; }
         if(e.key==='Escape') self.keys.esc=true;
+        if(e.key==='r'||e.key==='R') self.keysJust.restart=true;
         if(e.key==='ArrowDown'||e.key==='s'||e.key==='S') self.keys.down=true;
         e.preventDefault();
       };
@@ -384,8 +385,15 @@ const GameRunner = (function() {
       window.addEventListener('keydown', this._onKeyDown);
       window.addEventListener('keyup', this._onKeyUp);
 
-      // Tap/click anywhere on canvas = jump
-      this.input.on('pointerdown', function(){ self.keysJust.up=true; self.keys.up=true; });
+      // Make the canvas keyboard-focusable so window key listeners actually
+      // fire inside the Devvit iframe (which otherwise swallows key events).
+      try { if (this.game.canvas) { this.game.canvas.tabIndex = 0; this.game.canvas.focus(); } } catch(e) {}
+
+      // Tap/click anywhere on canvas = jump (and (re)grab keyboard focus)
+      this.input.on('pointerdown', function(){
+        try { self.game.canvas && self.game.canvas.focus(); } catch(e) {}
+        self.keysJust.up=true; self.keys.up=true;
+      });
       this.input.on('pointerup', function(){ self.keys.up=false; });
 
       // Tap timer to pause (HUD element)
@@ -419,6 +427,8 @@ const GameRunner = (function() {
       this.cameras.main.setBounds(0, 0, this.wW, this.wH);
 
       // ── HUD init ──
+      this.ghostDeltaIdx = 0;
+      this._setGhostHud('');
       this._updateHud();
       this._setMedalTicks();
 
@@ -427,7 +437,7 @@ const GameRunner = (function() {
         fontSize:'96px', fontFamily:'Share Tech Mono,Courier New',
         color:'#e8ff47', stroke:'#000', strokeThickness:8,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(50);
-      this.cdSub = this.add.text(_W/2, _H*0.52, 'PRESS ANY KEY TO START', {
+      this.cdSub = this.add.text(_W/2, _H*0.52, 'MOVE TO START THE CLOCK', {
         fontSize:'14px', fontFamily:'Share Tech Mono,Courier New',
         color:'#888899', letterSpacing:4,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(50);
@@ -779,8 +789,22 @@ const GameRunner = (function() {
       });
     }
 
-    // ─── Main update loop ───
+    // ─── Main update loop (crash-guarded) ───
+    // A throw inside update() would otherwise kill Phaser's RAF loop and freeze
+    // the whole game on the last rendered frame. Catch it, surface a recoverable
+    // message, and stop ticking instead of silently hard-freezing.
     update(time, delta) {
+      if (this._crashed) return;
+      try {
+        this._update(time, delta);
+      } catch (err) {
+        this._crashed = true;
+        try { console.error('[TRAPLINE] update() crashed:', err); } catch(e) {}
+        try { this._showCrashOverlay(err); } catch(e) {}
+      }
+    }
+
+    _update(time, delta) {
       if (!this.body || !this.phase) return; // create() didn't finish
       const dt = Math.min(delta/1000, 0.05);
       this.sawAngle = (this.sawAngle||0) + dt*4;
@@ -847,6 +871,13 @@ const GameRunner = (function() {
           }
         }
       });
+
+      // ─── Quick restart (R / restart button) ───
+      if (this.keysJust.restart || this.touch.restart) {
+        this.keysJust.restart = false; this.touch.restart = false;
+        this._quickRestart();
+        return;
+      }
 
       // ─── Pause check ───
       if (this.keys.esc) { this.keys.esc=false; this._togglePause(); }
@@ -1172,6 +1203,7 @@ const GameRunner = (function() {
       b.invincible=1.0; // 1 second invincibility on respawn
       this.replayFrames=[];
       this.elapsed=0;
+      this.ghostDeltaIdx=0;
       if(this.started) this.startMs=Date.now();
       this.playerGfx.setVisible(true);
       this.phase='running';
@@ -1257,7 +1289,8 @@ const GameRunner = (function() {
 
       // Delay results screen to show celebration first
       this.time.delayedCall(1400, () => {
-        rpc('SUBMIT_RUN',{courseId:_course.id,timeMs,deathCount:this.deaths,replayData:this.replayFrames},'RUN_SUBMITTED')
+        const anonId = (typeof LocalState!=='undefined') ? LocalState.getAnonId() : undefined;
+        rpc('SUBMIT_RUN',{courseId:_course.id,timeMs,deathCount:this.deaths,replayData:this.replayFrames,anonId},'RUN_SUBMITTED')
           .then(d=>App.showResults({course:_course,timeMs,deaths:this.deaths,board:d.board||[],ghost:d.ghost}))
           .catch(()=>App.showResults({course:_course,timeMs,deaths:this.deaths,board:[],ghost:null}));
       });
@@ -1405,6 +1438,52 @@ const GameRunner = (function() {
         const pb = typeof LocalState!=='undefined' ? LocalState.getBest(_course.id) : null;
         cn.textContent = _course.title + (pb ? ' · PB:'+(pb.timeMs/1000).toFixed(3)+'s' : '');
       }
+      this._updateGhostDelta();
+    }
+
+    // Trackmania-style live time-vs-ghost readout. Positive = behind the record.
+    _updateGhostDelta() {
+      if (!this.started || !this.ghostFrames || !this.ghostFrames.length) { this._setGhostHud(''); return; }
+      const px = this.body.x;
+      const gf = this.ghostFrames;
+      // Advance the cursor to the ghost frame matching the player's x-progress.
+      while (this.ghostDeltaIdx+1 < gf.length && gf[this.ghostDeltaIdx+1].x <= px) this.ghostDeltaIdx++;
+      while (this.ghostDeltaIdx > 0 && gf[this.ghostDeltaIdx].x > px) this.ghostDeltaIdx--;
+      const ghostT = gf[this.ghostDeltaIdx].t;
+      const delta = (this.elapsed - ghostT) / 1000; // seconds; +behind / -ahead
+      const sign = delta >= 0 ? '+' : '−';
+      this._setGhostHud(sign + Math.abs(delta).toFixed(2), delta <= 0);
+    }
+
+    _setGhostHud(text, ahead) {
+      const el = document.getElementById('hud-ghost');
+      if (!el) return;
+      if (!text) { el.textContent=''; el.style.display='none'; return; }
+      el.style.display='';
+      el.textContent='👻 '+text;
+      el.style.color = ahead ? '#44ff88' : '#ff5577';
+    }
+
+    _quickRestart() {
+      // Defer past the current frame so we don't destroy the game mid-update.
+      setTimeout(function(){ try { App.retryGame(); } catch(e) {} }, 0);
+    }
+
+    _showCrashOverlay() {
+      const el = document.getElementById('hud-crash') || (function(){
+        const d=document.createElement('div'); d.id='hud-crash'; document.body.appendChild(d); return d;
+      })();
+      el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;'+
+        'align-items:center;justify-content:center;gap:14px;background:rgba(7,7,15,0.92);'+
+        "font-family:'Share Tech Mono',monospace;color:#ff5577;text-align:center;padding:24px";
+      el.innerHTML = '<div style="font-size:20px;letter-spacing:2px">⚠ GLITCHED OUT</div>'+
+        '<div style="font-size:12px;color:#888899;max-width:320px">Something hiccuped mid-run. Your progress on this attempt was not saved.</div>';
+      const btn = document.createElement('button');
+      btn.textContent = '↺ RESTART';
+      btn.style.cssText = 'padding:10px 22px;font-family:inherit;font-size:14px;background:#e8ff47;'+
+        'color:#07070f;border:none;border-radius:6px;cursor:pointer;letter-spacing:1px';
+      btn.addEventListener('click', function(){ el.remove(); try { App.retryGame(); } catch(e) {} });
+      el.appendChild(btn);
     }
 
     _setMedalTicks() {
@@ -1427,6 +1506,9 @@ const GameRunner = (function() {
     if(game){game.destroy(true);game=null;}
     var container=document.getElementById('game-container');
     container.innerHTML='';
+    // Clear any leftover crash overlay / ghost readout from a previous run.
+    var crash=document.getElementById('hud-crash'); if(crash) crash.remove();
+    var gd=document.getElementById('hud-ghost'); if(gd){ gd.textContent=''; gd.style.display='none'; }
 
     // Hard-code safe dimensions — Devvit webview is always full viewport
     _W = window.innerWidth || 480;

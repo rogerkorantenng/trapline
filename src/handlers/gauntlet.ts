@@ -72,17 +72,74 @@ export async function archiveGauntlet(ctx: Context): Promise<void> {
   await ctx.redis.set(GAUNTLET_KEY, JSON.stringify(fresh));
 }
 
+// ── Proposal round (rolling, not date-keyed, so the nightly promoter is
+//    immune to UTC-boundary off-by-one bugs). Votes live in a sorted set
+//    keyed by proposal id; the payload lives in a parallel hash. ──
+const PROPOSAL_VOTES_KEY = 'gauntlet:proposals:open';
+const PROPOSAL_DATA_KEY = 'gauntlet:proposal_data';
+const MAX_SECTIONS_PER_SEASON = 20;
+
+export interface ProposalSummary {
+  id: string;
+  proposerName: string;
+  tileCount: number;
+  votes: number;
+}
+
 export async function submitGauntletProposal(
   ctx: Context,
   proposerId: string,
   proposerName: string,
   segment: SegmentData
-): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
-  const key = `gauntlet:proposals:${today}`;
-  await ctx.redis.zAdd(key, {
-    score: 1,
-    member: JSON.stringify({ proposerId, proposerName, segment, submittedAt: Date.now() }),
+): Promise<string> {
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await ctx.redis.hSet(PROPOSAL_DATA_KEY, {
+    [id]: JSON.stringify({ proposerId, proposerName, segment, submittedAt: Date.now() }),
   });
-  await ctx.redis.expire(key, 48 * 60 * 60);
+  // Proposer's own vote seeds the score at 1.
+  await ctx.redis.zAdd(PROPOSAL_VOTES_KEY, { score: 1, member: id });
+  return id;
+}
+
+export async function upvoteProposal(ctx: Context, proposalId: string): Promise<number> {
+  // Only counts if the proposal still exists in the data hash.
+  const exists = await ctx.redis.hGet(PROPOSAL_DATA_KEY, proposalId);
+  if (!exists) return 0;
+  return ctx.redis.zIncrBy(PROPOSAL_VOTES_KEY, proposalId, 1);
+}
+
+export async function listProposals(ctx: Context, limit = 10): Promise<ProposalSummary[]> {
+  const ranked = await ctx.redis.zRange(PROPOSAL_VOTES_KEY, 0, limit - 1, { by: 'score', reverse: true });
+  if (!ranked.length) return [];
+  const dataRaw = await ctx.redis.hGetAll(PROPOSAL_DATA_KEY);
+  const out: ProposalSummary[] = [];
+  for (const r of ranked) {
+    const raw = dataRaw[r.member];
+    if (!raw) continue;
+    const p = JSON.parse(raw) as { proposerName: string; segment: SegmentData };
+    out.push({ id: r.member, proposerName: p.proposerName, tileCount: p.segment.tiles.length, votes: r.score });
+  }
+  return out;
+}
+
+/** Promote the highest-voted proposal into the live Gauntlet, then clear the round. */
+export async function promoteTopProposal(ctx: Context): Promise<GauntletSection | null> {
+  const top = await ctx.redis.zRange(PROPOSAL_VOTES_KEY, 0, 0, { by: 'score', reverse: true });
+  if (!top.length) return null;
+  const winnerId = top[0].member;
+  const raw = await ctx.redis.hGet(PROPOSAL_DATA_KEY, winnerId);
+  if (!raw) return null;
+  const p = JSON.parse(raw) as { proposerId: string; proposerName: string; segment: SegmentData };
+
+  const state = await appendSection(ctx, p.segment, p.proposerId, p.proposerName);
+
+  // Clear the round so the next night starts fresh.
+  await ctx.redis.del(PROPOSAL_VOTES_KEY);
+  await ctx.redis.del(PROPOSAL_DATA_KEY);
+
+  // Roll to a new season once the course gets long.
+  if (state.sections.length >= MAX_SECTIONS_PER_SEASON) {
+    await archiveGauntlet(ctx);
+  }
+  return state.sections[state.sections.length - 1];
 }

@@ -1,6 +1,6 @@
 export type WebViewMessage =
-  | { type: 'INIT' }
-  | { type: 'SUBMIT_RUN'; data: { courseId: string; timeMs: number; deathCount: number; replayData: ReplayFrame[] } }
+  | { type: 'INIT'; data?: { anonId?: string } }
+  | { type: 'SUBMIT_RUN'; data: { courseId: string; timeMs: number; deathCount: number; replayData: ReplayFrame[]; anonId?: string } }
   | { type: 'GET_LEADERBOARD'; data: { courseId: string } }
   | { type: 'GET_GHOST'; data: { courseId: string } }
   | { type: 'SAVE_COURSE'; data: { course: CourseData } }
@@ -8,6 +8,9 @@ export type WebViewMessage =
   | { type: 'LIST_COURSES' }
   | { type: 'GET_GAUNTLET' }
   | { type: 'PROPOSE_GAUNTLET'; data: { segment: SegmentData; proposerName: string } }
+  | { type: 'GET_PROPOSALS' }
+  | { type: 'UPVOTE_PROPOSAL'; data: { proposalId: string } }
+  | { type: 'SHARE_RUN'; data: { courseTitle: string; timeMs: number; deathCount: number; medal: string } }
   | { type: 'RECORD_DEATH'; data: { courseId: string; x: number; y: number; taunt?: string } }
   | { type: 'GET_DEATH_GRAVEYARD'; data: { courseId: string } }
   | { type: 'GET_DAILY_COURSE' };
@@ -36,6 +39,7 @@ export interface CourseData {
   title: string;
   tiles: TileData[];
   medals: { bronze: number; silver: number; gold: number; author: number };
+  difficulty?: number;
   createdAt: number;
 }
 

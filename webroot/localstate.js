@@ -53,5 +53,16 @@ const LocalState = (function() {
     return null;
   }
 
-  return { recordRun, getBest, getRunCount, getTotals, getMedalForTime };
+  // Stable per-device id so logged-out players don't all collide as 'anon'
+  // on leaderboards / personal bests.
+  function getAnonId() {
+    const s = _load();
+    if (!s.anonId) {
+      s.anonId = 'anon_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+      _save();
+    }
+    return s.anonId;
+  }
+
+  return { recordRun, getBest, getRunCount, getTotals, getMedalForTime, getAnonId };
 })();
