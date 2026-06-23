@@ -29,7 +29,7 @@ const App = (function() {
     $('btn-game-exit').addEventListener('click', exitGame);
     $('btn-retry').addEventListener('click', retryGame);
     $('btn-share').addEventListener('click', shareResult);
-    $('btn-results-menu').addEventListener('click', showMenu);
+    $('btn-results-menu').addEventListener('click', showCourseSelect);
     $('btn-revenge').addEventListener('click', buildRevenge);
     // In-game HUD controls
     var restartBtn = $('btn-game-restart');
@@ -543,7 +543,12 @@ const App = (function() {
     playGame(course);
   }
 
-  function invalidateCommunityCache() { communityCoursesCache = null; }
+  function invalidateCommunityCache() {
+    communityCoursesCache = null;
+    // After publishing, default the next Course Select open to Community
+    // so the player lands on the tab that shows their new course.
+    currentTab = 'community';
+  }
 
   return { showMenu, showCourseSelect, setCourseTab, showEditor, playGame, exitGame, retryGame, buildRevenge, showResults, showGauntlet, playGauntlet, invalidateCommunityCache };
 })();
