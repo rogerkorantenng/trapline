@@ -119,7 +119,7 @@ const App = (function() {
     'TIP: Disappear platforms vanish when you stand on them',
     'TIP: Springs launch you higher if you dash into them',
     'TIP: You have ~110ms of coyote time off ledges',
-    'TIP: Build a revenge course when someone\'s course kills you',
+    'TIP: Build a revenge course when someone\'s course wipes you out',
     'TIP: The Gauntlet adds one section every night',
   ];
   let _tipIdx = 0;
@@ -332,8 +332,8 @@ const App = (function() {
 
     document.getElementById('results-time').textContent = (data.timeMs/1000).toFixed(3)+'s';
     document.getElementById('results-deaths').textContent =
-      data.deaths===0 ? '✨ NO DEATHS!' :
-      data.deaths===1 ? '💀 1 death' : '💀 '+data.deaths+' deaths';
+      data.deaths===0 ? '✨ FLAWLESS RUN!' :
+      data.deaths===1 ? '💥 1 wipeout' : '💥 '+data.deaths+' wipeouts';
 
     // Next medal target
     let nextMsg = '';
@@ -393,7 +393,7 @@ const App = (function() {
         document.querySelector('.results-content').appendChild(d);
         return d;
       })();
-      statsDiv.textContent = 'total: '+totals.totalRuns+' runs · '+totals.totalDeaths+' deaths';
+      statsDiv.textContent = 'total: '+totals.totalRuns+' runs · '+totals.totalDeaths+' wipeouts';
     }
   }
 

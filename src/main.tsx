@@ -64,7 +64,7 @@ Devvit.addMenuItem({
   onPress: async (_event, context) => {
     const subreddit = await context.reddit.getCurrentSubreddit();
     const post = await context.reddit.submitPost({
-      title: 'TRAPLINE — Build & race death courses',
+      title: 'TRAPLINE — Build & race trap courses',
       subredditName: subreddit.name,
       preview: (
         <vstack height="100%" width="100%" alignment="center middle" backgroundColor="#0a0a0f">
@@ -201,7 +201,7 @@ Devvit.addCustomPostType({
           const user = await context.reddit.getCurrentUser();
           const who = user?.username ? `u/${user.username}` : 'A racer';
           const medalLine = medal && medal !== 'FINISH' ? ` — ${medal} medal` : '';
-          const deathLine = deathCount === 0 ? 'no deaths ✨' : `${deathCount} death${deathCount === 1 ? '' : 's'}`;
+          const deathLine = deathCount === 0 ? 'no wipeouts ✨' : `${deathCount} wipeout${deathCount === 1 ? '' : 's'}`;
           const text =
             `🏁 ${who} cleared **${courseTitle}** in **${(timeMs / 1000).toFixed(3)}s**${medalLine} (${deathLine}).\n\n` +
             `Think you can go faster? Open the post and race it. — TRAPLINE`;

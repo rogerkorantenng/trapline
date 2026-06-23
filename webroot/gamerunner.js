@@ -1143,7 +1143,7 @@ const GameRunner = (function() {
 
       // WASTED text
       const W=_W, H=_H;
-      const wasted=this.add.text(W/2, H*0.38, 'WASTED', {
+      const wasted=this.add.text(W/2, H*0.38, 'WIPEOUT!', {
         fontSize:'64px', fontFamily:'Share Tech Mono, Courier New',
         color:'#ff3355', stroke:'#000',strokeThickness:6,
       }).setOrigin(0.5).setScrollFactor(0).setDepth(50).setScale(0.1).setAlpha(0);
@@ -1154,7 +1154,7 @@ const GameRunner = (function() {
         color:'#888899',
       }).setOrigin(0.5).setScrollFactor(0).setDepth(50).setAlpha(0);
 
-      const deathNum = this.add.text(W/2, H*0.6, 'death #'+this.deaths, {
+      const deathNum = this.add.text(W/2, H*0.6, 'wipeout #'+this.deaths, {
         fontSize:'13px', fontFamily:'Share Tech Mono, Courier New',
         color:'#444466',
       }).setOrigin(0.5).setScrollFactor(0).setDepth(50).setAlpha(0);
@@ -1432,7 +1432,7 @@ const GameRunner = (function() {
         }
       }
       const de=document.getElementById('hud-deaths');
-      if(de) de.textContent='💀 '+this.deaths;
+      if(de) de.textContent='💥 '+this.deaths;
       const cn=document.getElementById('hud-course-name');
       if(cn) {
         const pb = typeof LocalState!=='undefined' ? LocalState.getBest(_course.id) : null;

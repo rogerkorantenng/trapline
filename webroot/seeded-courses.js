@@ -4,8 +4,8 @@ function row(y,x0,x1,type){ return Array.from({length:x1-x0+1},(_,i)=>T(x0+i,y,t
 const SEEDED_COURSES = [
   {
     id:'seed_tutorial',authorId:'system',authorName:'TRAPLINE',
-    title:'First Blood', difficulty:1, icon:'🟢',
-    description:'Learn to run. Learn to jump. Learn to die.',
+    title:'First Steps', difficulty:1, icon:'🟢',
+    description:'Learn to run. Learn to jump. Try not to wipe out.',
     medals:{bronze:60000,silver:42000,gold:28000,author:18000}, createdAt:0,
     tiles:[
       T(0,10,'wall'),T(0,11,'wall'),T(0,12,'wall'),
@@ -56,7 +56,7 @@ const SEEDED_COURSES = [
   },
   {
     id:'seed_gauntlet',authorId:'system',authorName:'TRAPLINE',
-    title:'The Gauntlet', difficulty:4, icon:'💀',
+    title:'The Gauntlet', difficulty:4, icon:'🔥',
     description:'Every hazard. No mercy.',
     medals:{bronze:120000,silver:90000,gold:60000,author:38000}, createdAt:3,
     tiles:[
@@ -81,7 +81,7 @@ const SEEDED_COURSES = [
   {
     id:'seed_precision',authorId:'system',authorName:'TRAPLINE',
     title:'Surgeon\'s Run', difficulty:5, icon:'🔴',
-    description:'One pixel wrong = dead.',
+    description:'One pixel wrong = wipeout.',
     medals:{bronze:90000,silver:65000,gold:45000,author:28000}, createdAt:4,
     tiles:[
       T(0,10,'ground'),T(1,10,'ground'),T(2,10,'ground'),

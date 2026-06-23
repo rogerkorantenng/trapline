@@ -53,7 +53,7 @@ const COLORS = {
   DASH_TRAIL: 0xe8ff47,
 };
 
-const TAUNTS = ['skill issue', 'so close', 'ez', 'rage quit', 'rip', 'not today', 'nice try', 'lol'];
+const TAUNTS = ['skill issue', 'so close', 'ez', 'rage quit', 'oof', 'not today', 'nice try', 'lol'];
 
 function toast(msg, type) {
   var el = document.getElementById('toast');
