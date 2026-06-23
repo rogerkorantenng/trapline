@@ -1,99 +1,86 @@
 # TRAPLINE
 
-**Build and race trap courses on Reddit.**
+Build trap courses. Race them. Leave your mark where you wiped out.
 
-TRAPLINE is a precision platformer where the community is the level designer. Snap together a gauntlet of spikes, saws, springs and vanishing tiles, then race it for the fastest clean run. Every course is built by a player, every wipeout leaves a mark, and there's a fresh challenge waiting every single day.
+TRAPLINE is a precision platformer that runs inside a Reddit post. Every course in the game was made by another player using the built-in editor. The game has no levels of its own — it only exists because the community keeps building it.
 
-Built for Reddit's *Games with a Hook* hackathon on [Devvit](https://developers.reddit.com/) (Devvit Web) with [Phaser](https://phaser.io/).
-
+- **Play it:** [r/trapline_game_dev](https://www.reddit.com/r/trapline_game_dev/)
 - **App listing:** https://developers.reddit.com/apps/trapline-game
-- **Play it:** a live TRAPLINE post in [r/trapline_game_dev](https://www.reddit.com/r/trapline_game_dev/)
 
 ---
 
-## The hook
+## What it is
 
-TRAPLINE is designed around reasons to come back tomorrow, not just finish once today:
+You open a post and race short, hard obstacle courses to the finish flag as fast as you can. Each course keeps a leaderboard and a ghost replay of whoever holds the record. You are not chasing a clock — you are chasing a real person's exact line through the level.
 
-- **Daily course** — a community course is promoted as *the* daily challenge every UTC midnight. New course, new race, every day.
-- **The Gauntlet** — one ever-growing community mega-course. Players propose the next segment, everyone upvotes, and each day the top-voted segment is appended to the live Gauntlet. The course you raced yesterday is longer today.
-- **Ghosts & leaderboards** — every course keeps a per-course leaderboard and a *ghost replay* of the current best run. You're never racing alone; you're racing the record holder's exact line.
-- **Wipeout markers** — every time you wipe out, you leave a marker and a taunt at the spot. The next racer sees exactly where everyone before them came unstuck.
-- **Medals** — every course is auto-calibrated to Bronze / Silver / Gold / Author times. There's always a tighter line to chase.
+When you wipe out, you leave a marker and a one-line taunt at that spot. The next player sees the whole history of where people came unstuck before they even get there. Three wipeouts in the same place and the game marks it as a danger zone.
 
-## How to play
+Finish a course and you can post your result as a real Reddit comment on the thread — your time, your medal, right there in the feed for anyone to challenge.
 
-1. Open a TRAPLINE post and hit **PLAY**.
-2. **Run** (← →), **Jump**, and **Dash** through the course to the 🚩 finish flag. The movement is built for flow — variable-height jumps, air control, wall-slides and wall-jumps, dashes, coyote time and jump buffering for forgiving, expressive platforming.
-3. Beat the clock. Land a medal. Then **↗ SHARE** your run as a comment to call out the next challenger.
-4. Tap **BUILD** to open the editor and make your own course — then **publish** it to the community and race it yourself.
+## Building a course
 
-Works with keyboard on desktop and on-screen controls on mobile.
+The editor is built into the post. Tap BUILD from the menu, paint a course out of tiles, name it, and publish. It goes live in the Community tab immediately.
 
-## Build a course
-
-The in-app editor is a tile painter with everything you need to make a nasty, fair course:
-
-| Tile | Behaviour |
-|------|-----------|
+| Tile | What it does |
+|------|-------------|
 | ⬛ Ground / ▬ Platform | Solid footing |
-| ▲ Spike / ⚙ Saw | Static hazards |
-| 👾 Goomba | Moving enemy |
-| 🔼 Spring | Launches you up |
-| ◌ Vanish | Disappears after you touch it |
-| ⬇ Crusher | Slams down |
-| █ Wall | Wall-jump surface |
-| 🚩 Finish | The goal |
+| █ Wall | Solid block, good for wall-jump sections |
+| ▲ Spike / ⚙ Saw | Touch either and you wipe out |
+| 👾 Goomba | Moving enemy — stomp it from above or go around |
+| 🔼 Spring | Launches you into the air |
+| ◌ Vanish | Disappears after you touch it once |
+| ⬇ Crusher | Slams down from above |
+| 🚩 Finish | Every course needs one |
 
-Courses extend **forward as far as you want to build** — pan right and keep going. On publish, the course is validated for solvability (reachable finish, jumpable gaps), assigned a difficulty, and given calibrated medal times based on its length.
+The canvas extends as far right as you feel like building — no column limit. On publish the course is checked for solvability, assigned a difficulty, and given calibrated medal times based on its length.
 
-## Under the hood
+## What keeps people coming back
 
-The entire game runner is a `Phaser.Scene`. Custom physics handles acceleration, friction, terminal velocity, wall slides, and corner correction. The ghost replay records position and state every frame and plays it back in real time for the next racer. Screen shake on wipeout, camera flash on finish, tweened overlays for the countdown and celebration — all Phaser. The editor is deliberately vanilla canvas with no engine, so it stays lightweight and doesn't share any state with the runner.
+A daily course is picked automatically every night. New course, new race, no intervention needed.
 
-The content loop runs itself. Two scheduled Devvit jobs fire every night: one rotates the daily course, one promotes the top-voted Gauntlet segment. Neither needs a human to trigger it. The game gets new content whether anyone is watching or not.
+The Gauntlet is one long course the whole subreddit builds together. Anyone can propose the next section, everyone votes, and each night the top-voted piece gets added to the end. The course gets longer every day on its own. The leaderboard from yesterday still counts.
 
-The community generates everything else. Courses come from players, not a level designer. The Gauntlet grows because players propose and vote on its next section. Wipeout markers and taunts are player-written. Run comments posted to the thread are player-shared. Strip out the community and there is nothing left to play.
+Every course has Bronze, Silver, Gold, and Author medal targets. The Author time is the creator's direct challenge to whoever races it. There is always a faster line to find.
 
-## Tech
+## How it's built
 
-- **Devvit Web** — Interactive Post hosting a web view (`src/main.tsx`), messaging between the post and the game over a typed RPC layer.
-- **Phaser** — the game runner (`webroot/gamerunner.js`).
-- **HTML5 Canvas** — the course editor (`webroot/gameeditor.js`), no engine dependency.
-- **Redis** — courses, leaderboards, ghosts, wipeout markers, the Gauntlet, and daily rotation.
-- **Scheduled jobs** — `daily-rotate` (pick the daily course) and `gauntlet-advance` (promote the top-voted segment), armed idempotently on install/upgrade.
+The runner is Phaser. The whole game loop runs as a `Phaser.Scene` — custom physics with acceleration, friction, terminal velocity, wall mechanics, and corner correction so you stop catching on ledges you obviously cleared. Ghost replays record position and state every frame and play back in real time for the next racer. Screen shake on wipeout, camera flash on finish, tweened overlays for the countdown and celebration. The editor is vanilla canvas with no engine — it does not need a game loop, and keeping it separate meant it could be worked on without touching the runner.
 
-### Project structure
+Everything persistent lives in Redis: courses, leaderboards, ghosts, wipeout markers, the Gauntlet state, daily rotation. Two scheduled Devvit jobs run nightly — one rotates the daily course, one promotes the top-voted Gauntlet segment. They re-arm themselves on install and upgrade so older installs keep working without manual intervention.
+
+The Devvit app is a custom post type with a web view. The browser and server communicate over a typed message layer, and all Reddit API calls (post creation, comment submission, user lookup) go through Devvit's server context.
 
 ```
 src/
-  main.tsx              Devvit app: custom post, menu action, RPC handlers, cron jobs
+  main.tsx              Devvit app — post type, menu action, RPC handlers, cron jobs
   handlers/
-    courses.ts          save/list courses, daily course rotation
-    leaderboard.ts      per-course leaderboards, ghost replays, personal bests
-    gauntlet.ts         the growing community gauntlet + proposals/voting
+    courses.ts          save/list courses, daily rotation
+    leaderboard.ts      per-course boards, ghost replays, personal bests
+    gauntlet.ts         community mega-course, proposals, voting
     graveyard.ts        wipeout markers and taunts
-  types/index.ts        shared message + data types
+  types/index.ts        shared message and data types
 webroot/
-  index.html            screens (menu, game, editor, results, gauntlet)
-  app.js                client app / screen routing / RPC client
-  gamerunner.js         Phaser runner (physics, ghosts, wipeouts, results)
+  index.html            all screens
+  app.js                client routing, RPC client, onboarding guide
+  gamerunner.js         Phaser scene — physics, ghosts, wipeouts, results
   gameeditor.js         canvas course editor
-  constants.js          tiles, physics tuning, medals
-  ...                   audio, local state, seeded courses
+  constants.js          tile definitions, physics values, medal calibration
+  localstate.js         personal bests and run history (localStorage)
+  rpc.js                postMessage RPC layer
+  seeded-courses.js     built-in starter courses
 ```
 
-## Development
+## Running locally
 
-Requires the [Devvit CLI](https://developers.reddit.com/docs/) and a Reddit account that is a moderator of a test subreddit.
+You need the [Devvit CLI](https://developers.reddit.com/docs/) and a Reddit account that moderates a test subreddit.
 
 ```bash
 npm install
-npm run playtest <your-test-subreddit>   # live-reload against a real subreddit
-npm run upload                            # publish a new app version
+npm run playtest <your-subreddit>   # live reload against a real subreddit
+npm run upload                       # publish a new version
 ```
 
-To put a playable post in a subreddit: install the app, then use the subreddit's **••• → "Create TRAPLINE Game"** menu action.
+To create a playable post: install the app on a subreddit, then use the subreddit menu **••• → Create TRAPLINE Game**.
 
 ## License
 
