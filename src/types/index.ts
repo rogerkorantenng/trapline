@@ -13,7 +13,8 @@ export type WebViewMessage =
   | { type: 'SHARE_RUN'; data: { courseTitle: string; timeMs: number; deathCount: number; medal: string } }
   | { type: 'RECORD_DEATH'; data: { courseId: string; x: number; y: number; taunt?: string } }
   | { type: 'GET_DEATH_GRAVEYARD'; data: { courseId: string } }
-  | { type: 'GET_DAILY_COURSE' };
+  | { type: 'GET_DAILY_COURSE' }
+  | { type: 'DELETE_COURSE'; data: { courseId: string } };
 
 export interface ReplayFrame {
   t: number;

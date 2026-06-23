@@ -2,7 +2,7 @@ import { Devvit } from '@devvit/public-api';
 import type { Context } from '@devvit/public-api';
 import type { WebViewMessage } from './types/index.js';
 import { submitRun, getLeaderboard, getTopGhost, saveGhost, getPersonalBest } from './handlers/leaderboard.js';
-import { saveCourse, getCourse, listCourses, getDailyCourse, pickAndSetDaily } from './handlers/courses.js';
+import { saveCourse, getCourse, listCourses, getDailyCourse, pickAndSetDaily, deleteCourse } from './handlers/courses.js';
 import { recordDeath, getGraveyard } from './handlers/graveyard.js';
 import {
   getGauntlet,
@@ -230,6 +230,13 @@ Devvit.addCustomPostType({
         case 'GET_DAILY_COURSE': {
           const daily = await getDailyCourse(context);
           postMsg(context, { type: 'DAILY_COURSE_DATA', data: { course: daily } });
+          break;
+        }
+
+        case 'DELETE_COURSE': {
+          const { courseId } = msg.data;
+          const result = await deleteCourse(context, courseId, userId);
+          postMsg(context, { type: 'COURSE_DELETED', data: result });
           break;
         }
       }

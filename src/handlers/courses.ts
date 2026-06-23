@@ -32,6 +32,16 @@ export async function listCourses(ctx: Context, limit = 20): Promise<CourseData[
   return courses;
 }
 
+export async function deleteCourse(ctx: Context, courseId: string, requesterId: string): Promise<{ ok: boolean; reason?: string }> {
+  const raw = await ctx.redis.get(`course:${courseId}`);
+  if (!raw) return { ok: false, reason: 'not-found' };
+  const course = JSON.parse(raw) as CourseData;
+  if (course.authorId !== requesterId) return { ok: false, reason: 'not-author' };
+  await ctx.redis.del(`course:${courseId}`);
+  await ctx.redis.zRem(COURSE_LIST_KEY, [courseId]);
+  return { ok: true };
+}
+
 export async function getDailyCourse(ctx: Context): Promise<CourseData | null> {
   // Daily course key rotates by UTC date
   const today = new Date().toISOString().slice(0, 10);

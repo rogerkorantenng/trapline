@@ -215,6 +215,7 @@ const App = (function() {
 
       const hasTiles = course.tiles && course.tiles.length;
       const iconInner = hasTiles ? '<canvas class="course-thumb" width="48" height="48"></canvas>' : (course.icon||'🏁');
+      const isMycourse = window.GAME_STATE && course.authorId === window.GAME_STATE.userId;
       card.innerHTML =
         '<div class="course-card-icon" style="background:'+diffBg[diff]+';border:1px solid '+diffColors[diff]+'22;width:52px;height:52px;font-size:26px;border-radius:8px">' + iconInner + '</div>' +
         '<div class="course-card-body">' +
@@ -230,11 +231,29 @@ const App = (function() {
             (course.description ? ' · '+course.description : '') +
           '</div>'+
         '</div>' +
-        '<button class="course-card-play" style="background:'+diffColors[diff]+';color:#07070f;min-width:60px">▶</button>';
+        '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">' +
+          '<button class="course-card-play" style="background:'+diffColors[diff]+';color:#07070f;min-width:60px">▶</button>' +
+          (isMycourse ? '<button class="course-card-delete" style="background:transparent;border:1px solid #ff335544;color:#ff3355;font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;letter-spacing:1px">🗑 DELETE</button>' : '') +
+        '</div>';
 
       card.querySelector('.course-card-play').addEventListener('click', (e) => {
         e.stopPropagation(); playGame(course);
       });
+      if (isMycourse) {
+        card.querySelector('.course-card-delete').addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!confirm('Remove "' + (course.title||'Untitled') + '" from the community list?')) return;
+          rpc('DELETE_COURSE', { courseId: course.id }, 'COURSE_DELETED').then(d => {
+            if (d && d.ok) {
+              card.remove();
+              communityCoursesCache = communityCoursesCache ? communityCoursesCache.filter(c => c.id !== course.id) : null;
+              toast('Course removed');
+            } else {
+              toast(d && d.reason === 'not-author' ? 'You can only remove your own courses' : 'Could not remove course', 'warn');
+            }
+          }).catch(() => toast('Could not remove course', 'warn'));
+        });
+      }
       card.addEventListener('click', () => playGame(course));
       container.appendChild(card);
       if (hasTiles) _drawCourseThumb(card.querySelector('.course-thumb'), course.tiles);
