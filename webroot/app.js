@@ -19,8 +19,10 @@ const App = (function() {
     $('btn-play').addEventListener('click', _sfxClick(showCourseSelect));
     $('btn-build').addEventListener('click', function(){ showEditor({}); });
     $('btn-gauntlet').addEventListener('click', showGauntlet);
+    $('btn-leaderboard').addEventListener('click', showLeaderboard);
     $('btn-howto').addEventListener('click', showHowToPlay);
     $('btn-cs-back').addEventListener('click', showMenu);
+    $('btn-lb-back').addEventListener('click', showMenu);
     $('btn-editor-back').addEventListener('click', showMenu);
     $('btn-editor-test').addEventListener('click', function(){ Editor.test(); });
     $('btn-editor-pub').addEventListener('click', function(){ Editor.publish(); });
@@ -242,16 +244,32 @@ const App = (function() {
       if (isMycourse) {
         card.querySelector('.course-card-delete').addEventListener('click', (e) => {
           e.stopPropagation();
-          if (!confirm('Remove "' + (course.title||'Untitled') + '" from the community list?')) return;
-          rpc('DELETE_COURSE', { courseId: course.id }, 'COURSE_DELETED').then(d => {
-            if (d && d.ok) {
-              card.remove();
-              communityCoursesCache = communityCoursesCache ? communityCoursesCache.filter(c => c.id !== course.id) : null;
-              toast('Course removed');
-            } else {
-              toast(d && d.reason === 'not-author' ? 'You can only remove your own courses' : 'Could not remove course', 'warn');
-            }
-          }).catch(() => toast('Could not remove course', 'warn'));
+          // confirm() is disabled in Devvit's sandboxed iframe — use inline confirm instead
+          const existing = card.querySelector('.delete-confirm');
+          if (existing) { existing.remove(); return; }
+          const confirm = document.createElement('div');
+          confirm.className = 'delete-confirm';
+          confirm.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:8px;padding:8px;background:rgba(255,51,85,0.08);border:1px solid rgba(255,51,85,0.3);border-radius:4px';
+          confirm.innerHTML =
+            '<span style="font-family:Share Tech Mono,monospace;font-size:11px;color:#ff3355;flex:1">Remove this course?</span>' +
+            '<button class="del-yes" style="background:#ff3355;color:#fff;border:none;padding:4px 10px;border-radius:4px;font-family:Share Tech Mono,monospace;font-size:11px;cursor:pointer">YES</button>' +
+            '<button class="del-no" style="background:transparent;color:#888;border:1px solid #333;padding:4px 10px;border-radius:4px;font-family:Share Tech Mono,monospace;font-size:11px;cursor:pointer">NO</button>';
+          confirm.querySelector('.del-no').addEventListener('click', (e) => { e.stopPropagation(); confirm.remove(); });
+          confirm.querySelector('.del-yes').addEventListener('click', (e) => {
+            e.stopPropagation();
+            confirm.innerHTML = '<span style="font-family:Share Tech Mono,monospace;font-size:11px;color:#888">Removing...</span>';
+            rpc('DELETE_COURSE', { courseId: course.id }, 'COURSE_DELETED').then(d => {
+              if (d && d.ok) {
+                card.remove();
+                communityCoursesCache = communityCoursesCache ? communityCoursesCache.filter(c => c.id !== course.id) : null;
+                toast('Course removed');
+              } else {
+                confirm.remove();
+                toast(d && d.reason === 'not-author' ? 'You can only remove your own courses' : 'Could not remove course', 'warn');
+              }
+            }).catch(() => { confirm.remove(); toast('Could not remove course', 'warn'); });
+          });
+          card.appendChild(confirm);
         });
       }
       card.addEventListener('click', () => playGame(course));
@@ -562,6 +580,62 @@ const App = (function() {
     playGame(course);
   }
 
+  function showLeaderboard() {
+    _show('screen-leaderboard');
+    const list = document.getElementById('lb-list');
+    list.innerHTML = '<div style="color:#555;font-family:\'Share Tech Mono\',monospace;font-size:12px;padding:24px;text-align:center">Loading...</div>';
+    const allCourses = SEEDED_COURSES.concat(communityCoursesCache||[]);
+    if (communityCoursesCache) {
+      _renderLbCourseList(allCourses, list);
+    } else {
+      rpc('LIST_COURSES', {}, 'COURSES_LIST').then(d => {
+        communityCoursesCache = d.courses || [];
+        _renderLbCourseList(SEEDED_COURSES.concat(communityCoursesCache), list);
+      }).catch(() => _renderLbCourseList(SEEDED_COURSES, list));
+    }
+  }
+
+  function _renderLbCourseList(courses, container) {
+    container.innerHTML = '';
+    if (!courses.length) {
+      container.innerHTML = '<div style="color:#555;font-family:\'Share Tech Mono\',monospace;font-size:12px;padding:24px;text-align:center">No courses yet.</div>';
+      return;
+    }
+    courses.forEach(course => {
+      const row = document.createElement('div');
+      row.style.cssText = 'border-bottom:1px solid #1e1e3a;padding:12px 16px;cursor:pointer;';
+      row.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="font-family:Share Tech Mono,monospace;font-size:13px;color:#cccce0">' + (course.title||'Untitled') + '</span>' +
+          '<span style="font-family:Share Tech Mono,monospace;font-size:10px;color:#555577;letter-spacing:1px">▼ VIEW</span>' +
+        '</div>' +
+        '<div style="font-size:10px;color:#444466;margin-top:3px;font-family:Share Tech Mono,monospace">by ' + (course.authorName||'Anonymous') + '</div>' +
+        '<div class="lb-board-rows" style="display:none;margin-top:10px"></div>';
+      row.querySelector('div').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const boardDiv = row.querySelector('.lb-board-rows');
+        if (boardDiv.style.display !== 'none') { boardDiv.style.display = 'none'; row.querySelector('span:last-child').textContent = '▼ VIEW'; return; }
+        boardDiv.style.display = 'block';
+        row.querySelector('span:last-child').textContent = '▲ HIDE';
+        boardDiv.innerHTML = '<div style="color:#333355;font-size:11px;font-family:Share Tech Mono,monospace;padding:4px 0">Loading...</div>';
+        rpc('GET_LEADERBOARD', { courseId: course.id }, 'LEADERBOARD_DATA').then(d => {
+          const board = d.board || [];
+          if (!board.length) { boardDiv.innerHTML = '<div style="color:#333355;font-size:11px;font-family:Share Tech Mono,monospace;padding:4px 0">No runs yet — be the first!</div>'; return; }
+          boardDiv.innerHTML = '';
+          board.slice(0,10).forEach((e,i) => {
+            const medalIcon = e.medal==='author'?'👑':e.medal==='gold'?'🥇':e.medal==='silver'?'🥈':e.medal==='bronze'?'🥉':'';
+            const isMe = window.GAME_STATE && e.userId === window.GAME_STATE.userId;
+            const r = document.createElement('div');
+            r.style.cssText = 'display:flex;justify-content:space-between;padding:4px 0;font-family:Share Tech Mono,monospace;font-size:11px;' + (isMe ? 'color:#e8ff47' : 'color:#888899');
+            r.innerHTML = '<span>#'+(i+1)+' '+medalIcon+' '+(e.username||'?')+'</span><span>'+(e.timeMs/1000).toFixed(3)+'s · '+e.deathCount+'💥</span>';
+            boardDiv.appendChild(r);
+          });
+        }).catch(() => { boardDiv.innerHTML = '<div style="color:#ff3355;font-size:11px;font-family:Share Tech Mono,monospace;padding:4px 0">Could not load</div>'; });
+      });
+      container.appendChild(row);
+    });
+  }
+
   function invalidateCommunityCache() {
     communityCoursesCache = null;
     // After publishing, default the next Course Select open to Community
@@ -569,5 +643,5 @@ const App = (function() {
     currentTab = 'community';
   }
 
-  return { showMenu, showCourseSelect, setCourseTab, showEditor, playGame, exitGame, retryGame, buildRevenge, showResults, showGauntlet, playGauntlet, invalidateCommunityCache };
+  return { showMenu, showCourseSelect, setCourseTab, showEditor, playGame, exitGame, retryGame, buildRevenge, showResults, showGauntlet, playGauntlet, showLeaderboard, invalidateCommunityCache };
 })();
