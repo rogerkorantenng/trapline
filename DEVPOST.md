@@ -1,37 +1,67 @@
 # TRAPLINE — Devpost submission
 
 **Tagline**
-A Reddit platformer where the players build the traps, set the records, and leave taunts where you'll wipe out.
+A Reddit platformer where the community builds every level, sets every record, and leaves taunts at every spot you'll wipe out.
 
 ## Inspiration
 
-I kept asking why a few Reddit games stick and most die in a week. The ones that last usually aren't about the mechanic. They're about what someone else did with it yesterday: the level they made, the time you're chasing, the fight in the comments. So I made the platforming the easy part and spent the real effort on everything around it, like whose course this is and where everyone keeps falling apart. The taunt thing came straight from watching people lose their minds at hard platformers. The funniest stuff is always in the replies after a mean section. I wanted that to live inside the level instead of underneath it.
+I kept asking why a few Reddit games stick and most don't last a week. The ones that survive aren't usually about the core mechanic. They're about what other people did with it yesterday: the level someone else made, the time you're trying to beat, the argument in the comments after a brutal section. So I built the platforming to be the simple part and spent the real time on everything surrounding it.
+
+The taunt idea came from watching people lose their minds at hard platformers online. The best part is always what people write in the replies after a punishing spot. I wanted that reaction to live inside the level instead of underneath it in a comment thread. That one idea ended up shaping the whole game.
 
 ## What it does
 
-TRAPLINE runs inside a Reddit post. You race short, mean obstacle courses for the fastest clean run, except every course was made by another player. The editor is in the post too. You paint a course out of tiles (ground, spikes, saws, springs, crushers, vanishing platforms), publish it, and it goes live for the subreddit. Each course remembers a leaderboard and a ghost of the current best run, so you're chasing a real person's exact line instead of a clock. Wipe out and you leave a little marker and a one-line taunt right where it happened. The next person sees the whole history of where people choked before they got there.
+TRAPLINE runs inside a Reddit post. You race short, hard obstacle courses for the fastest clean run. Every course was made by another player in the same post. The editor is right there. You paint a course out of tiles, name it, publish it, and it goes live for everyone in the subreddit. No separate tool, no external link.
 
-The return loop is the actual point. A daily course gets chosen for you every night. And then there's the Gauntlet, which is one long course the subreddit builds together. You propose the next chunk, people vote, and the winner gets bolted onto the end every day. The course you struggled with yesterday is longer this morning. On top of that, every course has medal times from Bronze up to Author, plus the record ghost, so there's always a specific thing to beat.
+**The user contributions are the whole game.** Here is what players actually create:
 
-## How I built it
+**Courses.** The built-in tile editor lets anyone paint a course from ground, spikes, saws, springs, crushers, vanishing platforms, and walls. Build as far right as you want. Publish and it is immediately in the Community tab for anyone to race. The course gets auto-calibrated medal times (Bronze, Silver, Gold, Author) based on how long it is, so you do not have to guess.
 
-It's a Devvit Web app. The post hosts a web view, and the game and server pass typed messages back and forth. The runner is Phaser, and I wrote the movement by hand because feel was the whole game. Variable jump height, coyote time, a jump buffer, wall slides and jumps, a dash, corner correction so you stop catching on ledges you obviously cleared. Ghosts are just frames recorded as you run, replayed for whoever races next. The editor doesn't use an engine at all, it's canvas painting onto a grid that keeps going as far right as you feel like building. Everything persistent sits in Redis: courses, boards, ghosts, wipeout markers. Two scheduled jobs do the daily work, one rotating the daily course and one promoting the top-voted Gauntlet piece, and they re-arm on install and upgrade so old installs don't go stale.
+**Runs and records.** Every course keeps a per-course leaderboard and a ghost replay of the current best run. Your run is recorded frame by frame as you play. The next racer does not chase a clock — they chase your exact line through the level. When someone beats you, they become the ghost.
 
-## Challenges I ran into
+**Wipeout markers and taunts.** Every time you wipe out, you leave a small marker and a one-line taunt at that exact spot. The next player opens the level and sees the whole graveyard of where everyone before them came unstuck. Wipe out in the same spot three times and the game marks it as a danger zone. The taunts are short, but they are always funnier in context.
 
-Input was the first thing that nearly broke me. Key presses weren't registering inside the web view, so I gave up on Phaser's focus and listened for keys at the window level. Touch fought back too, so on mobile jump is just tap anywhere. Then the game flat-out froze on the "GO!" countdown one build, because I'd called a camera tint that doesn't exist in this version of Phaser, and one thrown error inside the update loop takes the entire frame loop down with it. Wrapped the risky bits, deleted the bad calls, done. Medals were their own headache, since a ten-second course and a two-minute course can't share a gold time, so I derive the targets from how long the course is when you publish it.
+**Run comments.** After you finish a course and get a result, you can share it as a real Reddit comment on the post. It posts your time, medal, and wipeout count directly to the thread. Anyone scrolling the subreddit sees it and can click through to race.
 
-## Accomplishments I'm proud of
+**The Gauntlet.** One course the whole subreddit builds together. You propose the next chunk, everyone votes, and every night the top-voted segment gets bolted onto the end. The course you raced yesterday is longer this morning. It never resets.
 
-Honestly, the movement. It feels right, and that took longer than everything else combined. The Gauntlet working is the other one. It's a single thing that grows because strangers keep adding to it, and seeing a course get longer overnight without me touching it was exactly what I was after. And the whole thing fits in a post and plays fine on a phone, which I wasn't sure would happen.
+## How I built it — and where Phaser actually lives
+
+The app is Devvit Web. The Reddit post hosts a web view, and a typed message layer handles everything between the browser and the server (Redis on the backend, scheduled jobs for the daily rotation and nightly Gauntlet advance).
+
+Phaser is the runner. Not a wrapper, not a helper — the entire game loop runs as a `Phaser.Scene`. I use Phaser's `Graphics` objects for every tile, player, ghost, wipeout marker, saw animation, crusher, and particle effect. The camera follows the player with `setBounds`, flashes on finish, shakes on wipeout. Tweens handle the countdown pop-in, the wipeout overlay scale animation, the confetti burst, and the celebration text. The HUD (timer, wipeout count, pause button) is pinned with `setScrollFactor(0)`. When I needed timing that couldn't trust Phaser's scaled time (the wipeout freeze frame), I dropped down to `Date.now()` and `setTimeout` — but the rest runs through the scene lifecycle.
+
+The editor is deliberately not Phaser. It is vanilla canvas with a grid and a tile painter. A tile editor does not need a game loop, and keeping it separate meant I could iterate on it without touching the runner at all.
+
+Movement I wrote by hand because feel was the whole game: variable jump height, coyote time, a jump buffer, wall slides and wall jumps, a dash, and corner correction so you stop catching on ledges you obviously cleared. The ghost system records position, velocity, and state every frame and replays it at the same timestamps for the next racer.
+
+## Challenges
+
+Input was the first serious fight. Key events were not registering inside the Devvit web view, so I moved the listener to the window level and stopped relying on Phaser's input focus. Touch required its own path — jump is tap-anywhere on mobile because a D-pad would have eaten too much screen.
+
+The game froze on the "GO!" countdown early in development because I called a camera tint method that does not exist in this build of Phaser. One unhandled throw inside `update()` kills the RAF loop and freezes everything. I wrapped the risky scene calls, deleted the bad ones, and added a top-level try/catch around `update()` to prevent any future mistake from taking the whole frame loop down.
+
+Medal calibration was its own problem. A five-second course and a three-minute course cannot share the same gold time. I derive the Bronze/Silver/Gold/Author targets from course length at publish, calibrated so a clean first run usually gets Bronze and the Author time is genuinely hard.
+
+`window.confirm()` is silently blocked in Devvit's sandboxed iframe — it just returns false. Found that when the delete button on community courses appeared to do nothing. Replaced with an inline YES/NO confirmation that appends to the card.
+
+## What I'm proud of
+
+The movement. It took longer than everything else combined and the difference between good and bad platformer movement is subtle enough that most people cannot say why it feels wrong when it does. Coyote time, input buffering, corner correction — none of them are impressive on their own. Take them all out and the game feels awful and you cannot quite say why.
+
+The Gauntlet working end to end. It is one shared object that grows because strangers keep adding to it, driven entirely by votes and a nightly cron job. I did not touch it after setting it up and it still advances. Watching a course get longer overnight without me doing anything was exactly what I wanted.
+
+And that the full loop — build a course, publish it, race someone else's course, leave a marker, share a run to the comments — all happens inside a single Reddit post on a phone.
 
 ## What I learned
 
-A ton about Devvit Web, the message model between the post and the server, and the spots where Redis is great and the spots where it gets annoying once you want real leaderboards and per-course state. Mostly though, game feel turned out to be a pile of tiny mercy systems doing quiet work. Coyote time, input buffering, corner correction. None of them impress anyone on their own. Rip them all out and the game feels awful, and you can't quite say why.
+A lot about where Devvit's Redis is straightforward and where it gets awkward. `zRange` returns `{ member, score }` objects, not strings — I wasted time on a bug where every community course lookup silently returned nothing because I was using the object directly as a Redis key. That kind of thing does not show up until you have real data.
+
+Also that `window.confirm()`, `localStorage`, and a few other browser APIs you reach for automatically are unavailable or broken in a sandboxed iframe. I hit each one at a different point in development.
 
 ## What's next
 
-Course collections and weekly themes. A way to spectate the top ghost. Better discovery so the good courses don't drown as new ones show up. More tiles for the editor, because the moment people start building they immediately want the one block you didn't give them.
+Better course discovery — right now the newest 20 courses show, which means good ones disappear fast. Sorting by rating or plays would help. A way to view the current record ghost without finishing the course first. More editor tiles, because every player who starts building immediately asks for the one block I did not include.
 
 ## Built with
 
@@ -40,4 +70,4 @@ devvit, reddit, phaser, javascript, typescript, redis, html5-canvas
 ## Links
 
 - App listing: https://developers.reddit.com/apps/trapline-game
-- Demo: a live TRAPLINE post in r/trapline_game_dev
+- Demo: live TRAPLINE post in r/trapline_game_dev
