@@ -6,6 +6,14 @@ You race short, brutal courses to the finish flag as fast as you can. Each cours
 
 Wipe out and you leave a marker and a taunt at that spot. The next player sees everyone who came unstuck there before them. Three wipeouts in the same place and the game marks it as a danger zone. Finish and you can post your result as a Reddit comment — your time and medal, right in the thread.
 
+---
+
+## Why this exists
+
+The games that stick on Reddit aren't usually about the core mechanic. They're about what other people did with it yesterday — the level someone made, the time you're chasing, the argument in the comments after a brutal section. Minecraft isn't popular because placing blocks is fun. It's popular because of what people build and the stories that come out of it. That's what TRAPLINE is trying to be, but for a two-minute platformer.
+
+The taunt system came from watching people lose their minds at hard platformers online. The funniest part is always the replies after a punishing spot. Putting that reaction inside the level rather than underneath it in a comment thread was the idea that shaped everything else.
+
 - **Play:** [r/trapline_game_dev](https://www.reddit.com/r/trapline_game_dev/)
 - **App listing:** https://developers.reddit.com/apps/trapline-game
 
