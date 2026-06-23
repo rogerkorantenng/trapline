@@ -47,11 +47,13 @@ The in-app editor is a tile painter with everything you need to make a nasty, fa
 
 Courses extend **forward as far as you want to build** — pan right and keep going. On publish, the course is validated for solvability (reachable finish, jumpable gaps), assigned a difficulty, and given calibrated medal times based on its length.
 
-## How it maps to the sub-challenges
+## Under the hood
 
-- **Best Use of Phaser** — the runner is a hand-tuned Phaser game: custom physics (acceleration, friction, terminal velocity, wall mechanics), ghost replay rendering, particles, screen shake, and a wipeout-marker system, all inside an Interactive Post.
-- **Best Use of Retention Mechanics** — daily course rotation and the daily-advancing Gauntlet are driven by scheduled Devvit jobs, so the content changes on its own every day whether or not you're watching.
-- **Best Use of User Contributions** — courses, Gauntlet segments, votes, wipeout taunts, and shared run comments are all player-generated. The game has no content of its own without the community.
+The entire game runner is a `Phaser.Scene`. Custom physics handles acceleration, friction, terminal velocity, wall slides, and corner correction. The ghost replay records position and state every frame and plays it back in real time for the next racer. Screen shake on wipeout, camera flash on finish, tweened overlays for the countdown and celebration — all Phaser. The editor is deliberately vanilla canvas with no engine, so it stays lightweight and doesn't share any state with the runner.
+
+The content loop runs itself. Two scheduled Devvit jobs fire every night: one rotates the daily course, one promotes the top-voted Gauntlet segment. Neither needs a human to trigger it. The game gets new content whether anyone is watching or not.
+
+The community generates everything else. Courses come from players, not a level designer. The Gauntlet grows because players propose and vote on its next section. Wipeout markers and taunts are player-written. Run comments posted to the thread are player-shared. Strip out the community and there is nothing left to play.
 
 ## Tech
 
