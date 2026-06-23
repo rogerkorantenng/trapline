@@ -21,12 +21,12 @@ export async function getCourse(ctx: Context, courseId: string): Promise<CourseD
 }
 
 export async function listCourses(ctx: Context, limit = 20): Promise<CourseData[]> {
-  // Return newest first
-  const ids = await ctx.redis.zRange(COURSE_LIST_KEY, -limit, -1, { by: 'rank' });
-  if (!ids.length) return [];
+  // zRange returns { member, score }[] — extract member (the course id string)
+  const entries = await ctx.redis.zRange(COURSE_LIST_KEY, -limit, -1, { by: 'rank' });
+  if (!entries.length) return [];
   const courses: CourseData[] = [];
-  for (const id of ids.reverse()) {
-    const raw = await ctx.redis.get(`course:${id}`);
+  for (const entry of entries.reverse()) {
+    const raw = await ctx.redis.get(`course:${entry.member}`);
     if (raw) courses.push(JSON.parse(raw) as CourseData);
   }
   return courses;
