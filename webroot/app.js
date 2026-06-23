@@ -543,5 +543,7 @@ const App = (function() {
     playGame(course);
   }
 
-  return { showMenu, showCourseSelect, setCourseTab, showEditor, playGame, exitGame, retryGame, buildRevenge, showResults, showGauntlet, playGauntlet };
+  function invalidateCommunityCache() { communityCoursesCache = null; }
+
+  return { showMenu, showCourseSelect, setCourseTab, showEditor, playGame, exitGame, retryGame, buildRevenge, showResults, showGauntlet, playGauntlet, invalidateCommunityCache };
 })();

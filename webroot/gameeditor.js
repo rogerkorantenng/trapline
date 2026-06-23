@@ -429,9 +429,11 @@ const Editor = (function() {
     try {
       await rpc('SAVE_COURSE', { course }, 'COURSE_SAVED');
       toast('Course published!');
+      App.invalidateCommunityCache();
       App.playGame(course);
     } catch(e) {
       toast('Saved locally, play now?');
+      App.invalidateCommunityCache();
       App.playGame(course);
     }
   }
