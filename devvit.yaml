@@ -1,6 +1,6 @@
 name: trapline-game
 version: 0.0.39
-api: '0.11'
+api: '0.12'
 developers:
   - Flat_Lawfulness8889
 webRoot: ./webroot
