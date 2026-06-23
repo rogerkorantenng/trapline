@@ -253,6 +253,12 @@ body {
   flex: 1; font-family: 'Share Tech Mono', monospace; font-size: 13px;
   color: var(--text-dim); letter-spacing: 2px;
   text-align: center;
+  background: transparent; border: none; outline: none;
+  border-bottom: 1px solid transparent; cursor: text;
+  min-width: 0;
+}
+.editor-title:focus {
+  color: var(--yellow); border-bottom-color: rgba(232,255,71,0.4);
 }
 .editor-actions { display: flex; gap: 8px; }
 .btn-editor-test {

@@ -314,7 +314,17 @@ const Editor = (function() {
     opts = opts || {};
     forGauntlet = opts.gauntlet || false;
     courseTitle = opts.revengeOn ? 'Revenge of ' + opts.revengeOn.title : 'My Course';
-    document.getElementById('editor-course-name').textContent = courseTitle;
+    const nameEl = document.getElementById('editor-course-name');
+    nameEl.value = courseTitle;
+    // Keep courseTitle in sync whenever the player edits it
+    nameEl.oninput = () => {
+      courseTitle = nameEl.value.trim() || 'My Course';
+    };
+    nameEl.onblur = () => {
+      if (!nameEl.value.trim()) { nameEl.value = 'My Course'; courseTitle = 'My Course'; }
+    };
+    // Prevent canvas keyboard shortcuts while typing in the title field
+    nameEl.addEventListener('keydown', e => e.stopPropagation());
     tileMap.clear();
     scrollX = 0; scrollY = Math.max(0, ROWS*T/2 - 200);
     erasing = false;
