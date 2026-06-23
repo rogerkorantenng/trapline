@@ -80,7 +80,10 @@ const App = (function() {
     document.getElementById('menu-username').textContent = window.GAME_STATE.username;
     window.GAME_STATE.isMobile = _isMobile();
     _startMenuParticles();
-    showMenu();
+    // Show onboarding guide on first visit, otherwise go straight to menu
+    let seen = false;
+    try { seen = !!localStorage.getItem('trapline_onboarding_done'); } catch(e) {}
+    if (seen) { showMenu(); } else { showOnboarding(false); }
   }
 
   // Animated floating particles on menu background
@@ -434,36 +437,131 @@ const App = (function() {
     }
   }
 
-  function showHowToPlay() {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal" style="max-width:380px">
-        <div class="modal-title">HOW TO PLAY</div>
-        <div class="modal-body" style="font-family:'Share Tech Mono',monospace;font-size:12px;line-height:2">
-          <div style="color:#e8ff47">MOVE</div>
-          <div style="color:#888899">← → Arrow keys or A / D</div>
-          <div style="color:#e8ff47;margin-top:8px">JUMP</div>
-          <div style="color:#888899">↑ or W or SPACE · Hold longer = higher jump</div>
-          <div style="color:#e8ff47;margin-top:8px">DASH</div>
-          <div style="color:#888899">SHIFT · One dash per airtime</div>
-          <div style="color:#e8ff47;margin-top:8px">WALL JUMP</div>
-          <div style="color:#888899">Hold toward wall + press JUMP</div>
-          <div style="color:#e8ff47;margin-top:8px">ENEMIES</div>
-          <div style="color:#888899">Jump ON TOP of enemies to stomp them</div>
-          <div style="color:#444466;margin-top:12px;font-size:10px">
-            Timer starts when you first move.<br>
-            Medals awarded for fast clear times.
-          </div>
+  // ──── Onboarding guide ────
+  const ONB_SLIDES = [
+    {
+      title: 'Welcome to TRAPLINE',
+      html: `
+        <p class="onb-text">TRAPLINE is a precision platformer where <span style="color:#e8ff47">every course is built by the community</span>. Race courses made by other players, chase their ghost, and leave your mark where you wipe out.</p>
+        <div class="onb-section-title">How to move</div>
+        <p class="onb-text"><span class="onb-key">← →</span> or <span class="onb-key">A</span><span class="onb-key">D</span> — run left and right</p>
+        <p class="onb-text"><span class="onb-key">↑</span> or <span class="onb-key">W</span> or <span class="onb-key">SPACE</span> — jump · hold longer for a higher jump</p>
+        <p class="onb-text"><span class="onb-key">SHIFT</span> — dash · one dash per jump</p>
+        <p class="onb-text">On mobile: <span style="color:#e8ff47">tap anywhere</span> to jump, use the on-screen buttons to run and dash.</p>
+        <div class="onb-section-title">Advanced moves</div>
+        <p class="onb-text"><strong style="color:#e8ff47">Wall jump</strong> — slide down a wall and press jump to launch off it. Great for reaching higher platforms.</p>
+        <p class="onb-text"><strong style="color:#e8ff47">Jump on enemies</strong> — land on top of a 👾 Goomba to stomp it. Touch the sides and you wipe out.</p>
+        <div class="onb-section-title">The timer</div>
+        <p class="onb-text">The clock does not start until you first move. Take your time reading the course — then go.</p>
+        <div class="onb-highlight">You get a <span style="color:#cd7f32">Bronze</span>, <span style="color:#c0c0c0">Silver</span>, <span style="color:#ffd700">Gold</span>, or <span style="color:#e8ff47">Author</span> medal based on how fast you clear. The Author time is the course creator's challenge to you.</div>
+      `
+    },
+    {
+      title: 'Ghosts, wipeouts & the leaderboard',
+      html: `
+        <div class="onb-section-title">The ghost</div>
+        <p class="onb-text">Every course shows a <span style="color:#4488ff">blue ghost</span> — the exact replay of whoever holds the record right now. You are not racing the clock. You are racing a real person's line through the level.</p>
+        <div class="onb-section-title">Wipeout markers</div>
+        <p class="onb-text">Every time you wipe out, you leave a small marker and a one-line taunt at that exact spot. The next player sees every marker from every person who struggled there before them.</p>
+        <p class="onb-text">Wipe out in the same spot three times and the game marks it as a <span style="color:#ff3355">danger zone</span>.</p>
+        <div class="onb-section-title">Leaderboard</div>
+        <p class="onb-text">After you finish a course you see the top runs. Your row is highlighted in yellow. From the main menu you can open the full <span style="color:#e8ff47">🏆 Leaderboard</span> to browse top times across every course without having to play first.</p>
+        <div class="onb-section-title">Share your run</div>
+        <div class="onb-highlight">Hit <span style="color:#e8ff47">↗ SHARE</span> on the results screen and TRAPLINE posts your time and medal as a real Reddit comment on this post. Anyone in the subreddit sees it and can jump in to beat you.</div>
+        <div class="onb-section-title">Daily course</div>
+        <p class="onb-text">Every night a new course is picked as the daily challenge. Check back tomorrow for a fresh one.</p>
+      `
+    },
+    {
+      title: 'Build your own course',
+      html: `
+        <p class="onb-text">Tap <span style="color:#e8ff47">✎ BUILD A COURSE</span> from the main menu to open the editor. Paint tiles, name your course, and publish it to the Community tab for everyone to race.</p>
+        <div class="onb-section-title">Editor controls</div>
+        <p class="onb-text"><strong style="color:#e8ff47">Click or tap</strong> to place a tile. <strong style="color:#e8ff47">Click and drag</strong> to paint a row. <strong style="color:#e8ff47">Right-click or two-finger drag</strong> to pan. Scroll or pinch to move around.</p>
+        <p class="onb-text">Pan right as far as you want — the canvas grows with your course. There is no length limit.</p>
+        <p class="onb-text">Tap the course name at the top to rename it before publishing.</p>
+        <div class="onb-section-title">Every tile explained</div>
+        <div class="onb-tile-grid">
+          <div class="onb-tile"><div class="onb-tile-icon">⬛</div><div><div class="onb-tile-name">GROUND</div><div class="onb-tile-desc">Solid. The floor of your course.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">▬</div><div><div class="onb-tile-name">PLATFORM</div><div class="onb-tile-desc">Thin solid ledge. Jump up through it.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">█</div><div><div class="onb-tile-name">WALL</div><div class="onb-tile-desc">Solid block. Good for wall-jump sections.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">▲</div><div><div class="onb-tile-name">SPIKE</div><div class="onb-tile-desc">Instant wipeout on contact.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">⚙</div><div><div class="onb-tile-name">SAW</div><div class="onb-tile-desc">Spinning hazard. Wipeout on contact.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">👾</div><div><div class="onb-tile-name">GOOMBA</div><div class="onb-tile-desc">Moving enemy. Stomp it or go around.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">🔼</div><div><div class="onb-tile-name">SPRING</div><div class="onb-tile-desc">Launches you high into the air.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">◌</div><div><div class="onb-tile-name">VANISH</div><div class="onb-tile-desc">Disappears after you touch it once.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">⬇</div><div><div class="onb-tile-name">CRUSHER</div><div class="onb-tile-desc">Slams down from above.</div></div></div>
+          <div class="onb-tile"><div class="onb-tile-icon">🚩</div><div><div class="onb-tile-name">FINISH</div><div class="onb-tile-desc">Every course needs one. Place it last.</div></div></div>
         </div>
-        <div class="modal-actions">
-          <button class="modal-btn primary" id="howto-close">GOT IT</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    document.getElementById('howto-close').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
+      `
+    },
+    {
+      title: 'The Gauntlet',
+      html: `
+        <div class="onb-section-title">One course. Built by everyone.</div>
+        <p class="onb-text">The Gauntlet is a single ever-growing course that the whole subreddit builds together. It starts with a simple section and gets longer every single night.</p>
+        <p class="onb-text">Here is how it works:</p>
+        <p class="onb-text">1. Anyone can <strong style="color:#e8ff47">propose the next chunk</strong> using the editor.</p>
+        <p class="onb-text">2. The community <strong style="color:#e8ff47">votes</strong> on the proposals.</p>
+        <p class="onb-text">3. Every night, the top-voted section gets <strong style="color:#e8ff47">bolted onto the end</strong>.</p>
+        <div class="onb-highlight">The course you raced yesterday is longer today. Every run you have done on it still counts toward the leaderboard.</div>
+        <div class="onb-section-title">You are ready</div>
+        <p class="onb-text">Pick a course from Featured or Community, race it, chase the ghost, beat the record. Then build your own and see what the community does with it.</p>
+        <p class="onb-text" style="color:#e8ff47;margin-top:12px">Good luck. The ghost is waiting.</p>
+      `
+    }
+  ];
+
+  function showOnboarding(fromMenu) {
+    _show('screen-onboarding');
+    let step = 0;
+    const body = document.getElementById('onb-body');
+    const nextBtn = document.getElementById('onb-next');
+    const backBtn = document.getElementById('onb-back');
+    const dotsEl = document.getElementById('onb-step-dots');
+
+    function renderDots() {
+      dotsEl.innerHTML = ONB_SLIDES.map((_, i) =>
+        '<div class="onb-dot' + (i===step ? ' active' : '') + '"></div>'
+      ).join('');
+    }
+
+    function renderSlide() {
+      body.innerHTML = '<div class="onb-section-title" style="font-size:15px;margin-bottom:12px;letter-spacing:2px">' +
+        ONB_SLIDES[step].title + '</div>' + ONB_SLIDES[step].html;
+      body.scrollTop = 0;
+      renderDots();
+      backBtn.style.visibility = (step === 0 && !fromMenu) ? 'hidden' : 'visible';
+      backBtn.textContent = (step === 0 && fromMenu) ? '← MENU' : '← BACK';
+      if (step === ONB_SLIDES.length - 1) {
+        nextBtn.textContent = "LET'S PLAY!";
+        nextBtn.style.background = 'var(--yellow)';
+        nextBtn.style.color = '#07070f';
+      } else {
+        nextBtn.textContent = 'NEXT →';
+        nextBtn.style.background = '';
+        nextBtn.style.color = '';
+      }
+    }
+
+    nextBtn.onclick = function() {
+      if (step < ONB_SLIDES.length - 1) {
+        step++; renderSlide();
+      } else {
+        try { localStorage.setItem('trapline_onboarding_done', '1'); } catch(e) {}
+        showMenu();
+      }
+    };
+
+    backBtn.onclick = function() {
+      if (step === 0) { showMenu(); return; }
+      step--; renderSlide();
+    };
+
+    renderSlide();
   }
+
+  function showHowToPlay() { showOnboarding(true); }
 
   function _syncMuteIcon() {
     var btn = document.getElementById('btn-game-mute');
