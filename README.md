@@ -2,42 +2,53 @@
 
 A precision platformer where every level was built by someone else in the same Reddit post.
 
-You race short, brutal courses to the finish flag as fast as you can. Each one has a leaderboard and a ghost — a real-time replay of whoever holds the record. You're not chasing a timer. You're chasing the exact path the current record holder took through the level.
+You race short, brutal courses to the finish flag as fast as you can. Each course has a leaderboard and a ghost — a real-time replay of whoever holds the record. You're not chasing a timer. You're chasing the exact path the current record holder took through the level.
 
-Wipe out and you leave a marker and a taunt at that spot. The next player sees everyone who failed there before them. Three wipeouts in the same place and the game calls it a danger zone. Finish and you can post your result as a Reddit comment on the thread — your time and medal, right in the feed.
+Wipe out and you leave a marker and a taunt at that spot. The next player sees everyone who came unstuck there before them. Three wipeouts in the same place and the game marks it as a danger zone. Finish and you can post your result as a Reddit comment — your time and medal, right in the thread.
 
-**Play:** [r/trapline_game_dev](https://www.reddit.com/r/trapline_game_dev/) · **App:** https://developers.reddit.com/apps/trapline-game
+- **Play:** [r/trapline_game_dev](https://www.reddit.com/r/trapline_game_dev/)
+- **App listing:** https://developers.reddit.com/apps/trapline-game
 
 ---
 
-## Building courses
+## Controls
 
-Hit BUILD from the menu. You get a tile editor that lives inside the post — no external tool. Paint your course, name it, publish it. It shows up in the Community tab straight away for anyone to race.
+Move with arrow keys or `A` / `D`. Jump with `W`, `↑`, or `Space` — hold longer for more height. Dash with `Shift`. Slide down a wall and press jump to wall-jump off it. On mobile, tap anywhere to jump and use the on-screen buttons to run and dash.
 
-The canvas keeps going right as far as you want to build. On publish the course gets checked for solvability and assigned medal times calibrated to how long it is.
+The timer starts when you first move. Take your time reading the course before you go.
 
-The tiles:
+---
 
-| | |
-|--|--|
+## Building a course
+
+Hit BUILD from the menu. The editor lives inside the post — no external tool. Paint your course, name it, publish it. It shows up in the Community tab immediately for anyone to race.
+
+The canvas extends as far right as you want to build. On publish the course is checked for solvability and given medal times calibrated to its length.
+
+| Tile | What it does |
+|------|-------------|
 | ⬛ Ground · ▬ Platform | solid footing |
-| █ Wall | solid block, good for wall-jump corridors |
+| █ Wall | solid block, good for wall-jump sections |
 | ▲ Spike · ⚙ Saw | instant wipeout on contact |
-| 👾 Goomba | patrols back and forth — stomp from above or go around |
-| 🔼 Spring | launches you high |
+| 👾 Goomba | patrols back and forth — stomp from above, or go around |
+| 🔼 Spring | launches you high into the air |
 | ◌ Vanish | disappears after the first touch |
 | ⬇ Crusher | slams down from above |
 | 🚩 Finish | one per course, place it last |
 
-## Why people come back
+---
 
-Every night a community course is picked as the daily challenge automatically. No manual work, just a new race each morning.
+## Daily play and the Gauntlet
 
-The Gauntlet is one course the whole subreddit builds together. Anyone proposes the next section, everyone votes, and the top pick gets added to the end each night. The course you raced yesterday is longer today. The leaderboard carries over.
+Every night a community course is automatically picked as the daily challenge. New race each morning, no manual work.
 
-Every course has Bronze, Silver, Gold, and Author medal targets. The Author time is the creator's direct challenge. There's always a tighter line to chase.
+The Gauntlet is one course the whole subreddit builds together. Anyone proposes the next section, everyone votes, and the top pick gets added to the end each night. The course gets longer every day on its own. The leaderboard carries over.
 
-## How it's put together
+Every course has Bronze, Silver, Gold, and Author medal targets. The Author time is the creator's direct challenge to whoever races it.
+
+---
+
+## How it's built
 
 The game runner is a Phaser scene. Physics is written by hand: acceleration, friction, terminal velocity, wall mechanics, corner correction. The ghost records position and state every frame and replays it live for whoever races next. Screen shake on wipeout, camera flash on finish, tweened overlays for the countdown. The editor is plain canvas — it doesn't need a game loop and keeping it separate meant changes there never touched the runner.
 
@@ -57,7 +68,9 @@ webroot/
   app.js                screen routing, onboarding, RPC client
 ```
 
-## Running it locally
+---
+
+## Running locally
 
 Needs the [Devvit CLI](https://developers.reddit.com/docs/) and a Reddit account that moderates a test subreddit.
 
@@ -68,6 +81,8 @@ npm run upload
 ```
 
 To get a playable post: install the app, then use the subreddit menu **••• → Create TRAPLINE Game**.
+
+---
 
 ## License
 
