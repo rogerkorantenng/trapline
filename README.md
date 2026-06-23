@@ -1,6 +1,6 @@
 # TRAPLINE
 
-A precision platformer where every level was built by someone else in the same Reddit post.
+Think Minecraft, but instead of building a house, you build a trap course — and then watch the community try to beat it. Every level in TRAPLINE was made by another player using a tile editor built into the post. The game has no levels of its own.
 
 You race short, brutal courses to the finish flag as fast as you can. Each course has a leaderboard and a ghost — a real-time replay of whoever holds the record. You're not chasing a timer. You're chasing the exact path the current record holder took through the level.
 
